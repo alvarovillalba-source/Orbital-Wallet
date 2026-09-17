@@ -1,0 +1,190 @@
+/* =========================
+   ORBITAL WALLET
+   ESTILOS PRINCIPALES
+   ========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f4f6f9;
+  color: #172b4d;
+}
+
+.app {
+  min-height: 100vh;
+}
+
+/* =========================
+   ENCABEZADO
+   ========================= */
+
+.hero {
+  background: linear-gradient(110deg, #080808 0%, #151515 55%, #3b0008 100%);
+  color: white;
+  padding: 55px 8%;
+}
+
+.hero-content {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo-image {
+  width: 230px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 42px;
+  font-weight: 700;
+}
+
+.hero p {
+  margin: 0;
+  font-size: 18px;
+  color: #d9d9d9;
+}
+
+.hero-description {
+  max-width: 850px;
+  margin: 35px auto 0;
+  font-size: 18px;
+  line-height: 1.6;
+  color: #eeeeee;
+}
+
+/* =========================
+   CONTENIDO
+   ========================= */
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 60px 25px;
+}
+
+.intro {
+  text-align: center;
+  margin-bottom: 45px;
+}
+
+.intro h2 {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
+
+.intro p {
+  color: #718096;
+  font-size: 17px;
+}
+
+/* =========================
+   TARJETAS
+   ========================= */
+
+.categories {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.category-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 28px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.category-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.1);
+}
+
+.category-card h3 {
+  margin: 15px 0 8px;
+  font-size: 21px;
+}
+
+.category-card p {
+  color: #718096;
+  line-height: 1.5;
+}
+
+/* =========================
+   BOTONES / ENLACES
+   ========================= */
+
+.category-link,
+.process-button {
+  display: block;
+  width: 100%;
+  padding: 13px 16px;
+  margin-top: 20px;
+  border-radius: 8px;
+  background: #ed1b2f;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.category-link:hover,
+.process-button:hover {
+  background: #c91021;
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+@media (max-width: 900px) {
+  .categories {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .hero-content {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .hero h1 {
+    font-size: 34px;
+  }
+}
+
+@media (max-width: 600px) {
+  .categories {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: 40px 20px;
+  }
+
+  .logo-image {
+    width: 190px;
+  }
+
+  .hero h1 {
+    font-size: 30px;
+  }
+
+  main {
+    padding: 40px 18px;
+  }
+}
