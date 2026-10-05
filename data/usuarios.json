@@ -1,0 +1,18 @@
+[
+  {
+    "username": "admin",
+    "password": "orbital-wallet-admin",
+    "role": "administrador"
+  },
+  {
+    "username": "Alvaro Villalba",
+    "password": "**ShadowGun181**",
+    "role": "administrador"
+  },
+  {
+    "username": "Rocio Espinola",
+    "password": "31121934",
+    "role": "agente",
+    "mustChangePassword": false
+  }
+]
