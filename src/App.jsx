@@ -1,23 +1,24 @@
 import "./App.css";
 import logo from "./assets/Logo.png";
 import { lazy, Suspense, useEffect, useState } from "react";
+import DOMPurify from "dompurify";
 import { documentoAHtml } from "./documentContent";
+import CommunicationEditor from "./CommunicationEditor";
 
 const AdminDocumentEditorPage = lazy(() => import("./DocumentRichEditor.jsx"));
 
 const CONSULTAS_KEY = "orbital-wallet-consultas";
 const COMUNICADOS_KEY = "orbital-wallet-comunicados";
 const ADMIN_USERNAME_KEY = "orbital-wallet-admin-username";
-const ADMIN_PASSWORD_KEY = "orbital-wallet-admin-password";
 const ADMIN_USERS_KEY = "orbital-wallet-admin-users";
 const ADMIN_SESSION_KEY = "orbital-wallet-admin-session";
 const ADMIN_SESSION_ROLE_KEY = "orbital-wallet-admin-session-role";
 const ADMIN_MUST_CHANGE_PASSWORD_KEY = "orbital-wallet-admin-must-change-password";
 const ADMIN_ACTIVITY_KEY = "orbital-wallet-admin-activity";
 const THEME_KEY = "orbital-wallet-theme";
+const CASINOS_KEY = "orbital-pay-casinos";
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 const DEFAULT_ADMIN_USERNAME = "admin";
-const DEFAULT_ADMIN_PASSWORD = "orbital-wallet-admin";
 const ADMIN_ROLE = "administrador";
 const AGENT_ROLE = "agente";
 
@@ -80,10 +81,6 @@ function leerUsuarioAdmin() {
   return localStorage.getItem(ADMIN_USERNAME_KEY) || DEFAULT_ADMIN_USERNAME;
 }
 
-function leerPasswordAdmin() {
-  return localStorage.getItem(ADMIN_PASSWORD_KEY) || DEFAULT_ADMIN_PASSWORD;
-}
-
 function leerUsuariosAdmin() {
   try {
     const usuarios = JSON.parse(localStorage.getItem(ADMIN_USERS_KEY));
@@ -94,7 +91,7 @@ function leerUsuariosAdmin() {
     // Usa las credenciales antiguas si la lista no existe o está dañada.
   }
 
-  return [{ username: leerUsuarioAdmin(), password: leerPasswordAdmin(), role: ADMIN_ROLE }];
+  return [{ username: leerUsuarioAdmin(), role: ADMIN_ROLE }];
 }
 
 function normalizarUsuariosAdmin(usuarios) {
@@ -104,6 +101,10 @@ function normalizarUsuariosAdmin(usuarios) {
       ? ADMIN_ROLE
       : usuario.role || AGENT_ROLE,
   }));
+}
+
+function usuariosSinCredenciales(usuarios) {
+  return usuarios.map(({ password, ...usuario }) => usuario);
 }
 
 async function obtenerUsuariosAdmin() {
@@ -123,15 +124,17 @@ async function obtenerUsuariosAdmin() {
 }
 
 function guardarUsuariosAdmin(usuarios) {
-  localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(usuarios));
   return fetch("/api/usuarios", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(usuarios),
-  }).then((response) => {
+  }).then(async (response) => {
     if (!response.ok) {
       throw new Error("No se pudieron guardar los usuarios compartidos.");
     }
+    const result = await response.json();
+    localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(result.users || usuariosSinCredenciales(usuarios)));
+    return result.users || usuariosSinCredenciales(usuarios);
   }).catch(() => {
     window.alert("No se pudieron guardar los usuarios en el servidor compartido.");
   });
@@ -148,7 +151,9 @@ function marcarActividadSesion() {
 
 function generarPassword() {
   const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
-  return Array.from({ length: 12 }, () => caracteres[Math.floor(Math.random() * caracteres.length)]).join("");
+  const randomValues = new Uint32Array(16);
+  crypto.getRandomValues(randomValues);
+  return Array.from(randomValues, (value) => caracteres[value % caracteres.length]).join("");
 }
 
 function leerSesionAdmin() {
@@ -181,6 +186,8 @@ function leerRolSesionAdmin() {
 }
 
 function guardarSesion(usuario) {
+  const usuarios = leerUsuariosAdmin().filter((item) => item.username !== usuario.username);
+  localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(usuariosSinCredenciales([...usuarios, usuario])));
   localStorage.setItem(ADMIN_SESSION_KEY, usuario.username);
   localStorage.setItem(ADMIN_SESSION_ROLE_KEY, usuario.role);
   if (usuario.mustChangePassword) {
@@ -327,6 +334,8 @@ const documentosPorCategoria = {
 
 function Header({ content, username = "" }) {
   const activeUsername = username || leerSesionAdmin();
+  const isAdministrator = Boolean(activeUsername) && leerRolSesionAdmin() === ADMIN_ROLE;
+  const isAdminRoute = window.location.pathname.startsWith("/admin");
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark");
 
   useEffect(() => {
@@ -334,12 +343,41 @@ function Header({ content, username = "" }) {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
+  useEffect(() => {
+    if (!activeUsername) return undefined;
+    let cancelled = false;
+    const validateSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session");
+        if (!response.ok && !cancelled) {
+          localStorage.removeItem(ADMIN_SESSION_KEY);
+          localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
+          localStorage.removeItem(ADMIN_ACTIVITY_KEY);
+          window.location.replace("/");
+        }
+      } catch {
+        // A temporary network error does not end the local session.
+      }
+    };
+    validateSession();
+    const timer = window.setInterval(validateSession, 30 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeUsername]);
+
   return (
     <header className="hero">
       {activeUsername && (
         <span className="admin-current-user">Usuario: {activeUsername}</span>
       )}
       <div className="hero-actions">
+        {isAdministrator && (
+          <a className="admin-switch-button" href={isAdminRoute ? "/" : "/admin"}>
+            {isAdminRoute ? "Ir a Inicio" : "Ir a Administrador"}
+          </a>
+        )}
         <button
           className="theme-toggle"
           type="button"
@@ -354,7 +392,8 @@ function Header({ content, username = "" }) {
           <button
             className="logout-button"
             type="button"
-            onClick={() => {
+            onClick={async () => {
+              await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
               localStorage.removeItem(ADMIN_SESSION_KEY);
               localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
               localStorage.removeItem(ADMIN_ACTIVITY_KEY);
@@ -384,12 +423,11 @@ function Footer({ content }) {
   );
 }
 
-function NavigationLinks({ admin = false }) {
+function NavigationLinks({ admin = false, backHref }) {
+  const destination = backHref || (admin ? "/admin" : "/");
   return (
     <div className="navigation-links">
-      <button className="back-link back-button" type="button" onClick={() => window.history.back()}>
-        ← Volver atrás
-      </button>
+      <a className="back-link" href={destination}>← Volver atrás</a>
       <a className="back-link" href={admin ? "/admin" : "/"}>⌂ Volver al inicio</a>
     </div>
   );
@@ -422,7 +460,7 @@ function DocumentPage({ document, category, content }) {
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} />
       <main className="category-page integrated-document-page">
-        <NavigationLinks />
+        <NavigationLinks backHref={category?.target ? `/${category.target}` : "/"} />
         <article className="integrated-document">
           <header className="integrated-document-header">
             <div className="integrated-document-icon">{document.icon || "📄"}</div>
@@ -431,7 +469,22 @@ function DocumentPage({ document, category, content }) {
               <h1>{document.title}</h1>
             </div>
           </header>
-          {document.content ? (
+          {document.originalHtmlUrl ? (
+            <div className="integrated-document-original">
+              <iframe
+                title={`Documento original: ${document.title}`}
+                src={document.originalHtmlUrl}
+                sandbox="allow-same-origin"
+                onLoad={(event) => {
+                  const frame = event.currentTarget;
+                  const page = frame.contentDocument;
+                  if (!page) return;
+                  const height = Math.max(page.documentElement?.scrollHeight || 0, page.body?.scrollHeight || 0);
+                  if (height > 0) frame.style.height = `${height}px`;
+                }}
+              />
+            </div>
+          ) : document.content ? (
             <div className="integrated-document-content">
               <div dangerouslySetInnerHTML={{ __html: documentoAHtml(document.content) }} />
             </div>
@@ -457,7 +510,7 @@ function CategoryPage({ category, categoryContent, onConsultation, content }) {
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} />
       <main className="category-page">
-        <NavigationLinks />
+        <NavigationLinks backHref="/" />
         <section className="category-detail">
           <div className="category-detail-icon">
             {categoryContent.logo ? <img src={categoryContent.logo} alt="" /> : category.icon}
@@ -493,8 +546,8 @@ function CommunicationCard({ comunicado, onDelete }) {
   return (
     <article className="communication-item">
       <span>📢</span>
-      <div>
-        <p>{comunicado.message}</p>
+      <div className="communication-item-body">
+        <div className="communication-item-message" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(comunicado.message || "") }} />
         <small>{comunicado.date} - {comunicado.time}</small>
       </div>
       {onDelete && (
@@ -513,7 +566,7 @@ function CommunicationsPage({ comunicados, content, previousOnly = false }) {
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} />
       <main className="category-page">
-        <NavigationLinks />
+        <NavigationLinks backHref={previousOnly ? "/comunicados" : "/"} />
         <section className="category-detail">
           <div className="category-detail-icon">📢</div>
           <h1>{previousOnly ? "Comunicados anteriores" : "Comunicados"}</h1>
@@ -557,15 +610,23 @@ function PublicLoginSection({ redirectTo = "/admin" }) {
 
   const authenticate = async (event) => {
     event.preventDefault();
-    const usuarios = await obtenerUsuariosAdmin().catch(() => leerUsuariosAdmin());
-    const usuario = usuarios.find((item) => item.username === username.trim() && item.password === password);
-    if (!usuario) {
-      setError("Usuario o contraseña incorrectos.");
-      return;
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error || "No se pudo iniciar sesión.");
+        return;
+      }
+      const usuario = result.user;
+      guardarSesion(usuario);
+      window.location.href = usuario.mustChangePassword ? "/cambiar-password" : "/modulos";
+    } catch {
+      setError("No se pudo conectar con el servidor de acceso.");
     }
-
-    guardarSesion(usuario);
-    window.location.href = usuario.mustChangePassword ? "/cambiar-password" : redirectTo;
   };
 
   return (
@@ -590,6 +651,38 @@ function PublicLoginSection({ redirectTo = "/admin" }) {
   );
 }
 
+function ModulePicker({ content }) {
+  return <div className="app" style={getBrandStyles(content)}>
+    <Header content={content} />
+    <main className="module-picker">
+      <div className="section-heading"><span className="pay-kicker">PLATAFORMA ORBITAL</span><h1>¿A qué módulo querés ingresar?</h1><p>Elegí el espacio de trabajo que necesitás usar.</p></div>
+      <div className="module-grid">
+        <a className="module-card wallet-module" href="/"><span className="module-symbol">◉</span><span className="module-tag">ATENCIÓN Y OPERACIONES</span><h2>Orbital Wallet</h2><p>Manuales, procedimientos y comunicados del equipo.</p><span className="module-cta">Ingresar a Wallet <b>→</b></span></a>
+        <a className="module-card pay-module" href="/orbital-pay"><span className="module-symbol">₱</span><span className="module-tag">GESTIÓN DE CASINOS</span><h2>Orbital Pay</h2><p>Administrá casinos, contactos y el estado de cada operación.</p><span className="module-cta">Ingresar a Pay <b>→</b></span></a>
+      </div>
+    </main>
+  </div>;
+}
+
+function OrbitalPayPage({ content }) {
+  const [casinos, setCasinos] = useState(() => {
+    try { const saved = JSON.parse(localStorage.getItem(CASINOS_KEY)); return Array.isArray(saved) ? saved : []; } catch { return []; }
+  });
+  const [name, setName] = useState("");
+  const [contact, setContact] = useState("");
+  const [status, setStatus] = useState("Activo");
+  const save = (items) => { setCasinos(items); localStorage.setItem(CASINOS_KEY, JSON.stringify(items)); };
+  const addCasino = (event) => { event.preventDefault(); save([...casinos, { id: Date.now(), name: name.trim(), contact: contact.trim(), status }]); setName(""); setContact(""); };
+  return <div className="app pay-app"><Header content={{ ...content, headerSubtitle: "Gestión de casinos · Orbital Pay" }} />
+    <main className="pay-dashboard">
+      <nav className="pay-nav"><a href="/modulos">← Cambiar módulo</a><span>ORBITAL PAY / CASINOS</span></nav>
+      <div className="pay-heading"><div><span className="pay-kicker">CENTRO DE OPERACIONES</span><h1>Gestión de casinos</h1><p>Administrá los establecimientos vinculados a Orbital Pay.</p></div><div className="pay-total"><strong>{String(casinos.length).padStart(2, "0")}</strong><span>CASINOS REGISTRADOS</span></div></div>
+      <div className="pay-layout"><section className="pay-panel pay-form-panel"><div className="pay-panel-title"><span>＋</span><div><small>NUEVO REGISTRO</small><h2>Agregar casino</h2></div></div><form className="pay-form" onSubmit={addCasino}><label>Nombre del casino<input value={name} onChange={e => setName(e.target.value)} placeholder="Ej. Casino Central" required /></label><label>Contacto responsable<input value={contact} onChange={e => setContact(e.target.value)} placeholder="Nombre o correo" /></label><label>Estado<select value={status} onChange={e => setStatus(e.target.value)}><option>Activo</option><option>En revisión</option><option>Inactivo</option></select></label><button type="submit">Guardar casino <span>→</span></button></form></section>
+      <section className="pay-panel pay-list-panel"><div className="pay-panel-title"><span>▤</span><div><small>DIRECTORIO</small><h2>Casinos registrados</h2></div></div>{casinos.length ? <div className="casino-list">{casinos.map(casino => <article className="casino-row" key={casino.id}><div className="casino-avatar">{casino.name.slice(0,1).toUpperCase()}</div><div className="casino-info"><strong>{casino.name}</strong><small>{casino.contact || "Sin contacto asignado"}</small></div><span className={`casino-status ${casino.status === "Activo" ? "is-active" : ""}`}>{casino.status}</span><button type="button" className="casino-delete" aria-label={`Eliminar ${casino.name}`} onClick={() => save(casinos.filter(item => item.id !== casino.id))}>×</button></article>)}</div> : <div className="casino-empty"><span>▤</span><strong>Aún no hay casinos</strong><p>Los nuevos registros aparecerán en este directorio.</p></div>}</section></div>
+    </main>
+  </div>;
+}
+
 function PasswordChangePage({ content, username }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -610,25 +703,16 @@ function PasswordChangePage({ content, username }) {
     setSaving(true);
     setError("");
     try {
-      const usuarios = await obtenerUsuariosAdmin();
-      const usuarioActual = usuarios.find((usuario) => usuario.username === username);
-      if (!usuarioActual) {
-        throw new Error("No se encontró el usuario.");
-      }
-
-      const usuariosActualizados = usuarios.map((usuario) => usuario.username === username
-        ? { ...usuario, password: newPassword.trim(), mustChangePassword: false }
-        : usuario);
-      const response = await fetch("/api/usuarios", {
+      const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(usuariosActualizados),
+        body: JSON.stringify({ password: newPassword.trim() }),
       });
       if (!response.ok) {
-        throw new Error("No se pudo guardar la nueva contraseña.");
+        const result = await response.json();
+        throw new Error(result.error || "No se pudo guardar la nueva contraseña.");
       }
 
-      localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(usuariosActualizados));
       localStorage.removeItem(ADMIN_MUST_CHANGE_PASSWORD_KEY);
       window.location.assign("/");
     } catch {
@@ -670,84 +754,73 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newUsername, setNewUsername] = useState("");
+  const [resetUsername, setResetUsername] = useState("");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [generatedUsername, setGeneratedUsername] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState("");
+  const [generatedRole, setGeneratedRole] = useState(AGENT_ROLE);
   const [adminUsers, setAdminUsers] = useState(() => leerUsuariosAdmin());
+  const [authError, setAuthError] = useState("");
   const [message, setMessage] = useState("");
-  const [date, setDate] = useState(() => new Date().toLocaleDateString("es-AR"));
-  const [time, setTime] = useState(() => new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }));
-    const [showContentEditor, setShowContentEditor] = useState(false);
+  const [communicationEditorKey, setCommunicationEditorKey] = useState(0);
     const [contentDraft, setContentDraft] = useState(content);
     const [importingDocuments, setImportingDocuments] = useState(false);
-    const [selectedDocumentByCategory, setSelectedDocumentByCategory] = useState({});
 
-    useEffect(() => {
-      obtenerUsuariosAdmin().then(setAdminUsers).catch(() => null);
-    }, []);
+  useEffect(() => {
+    if (authenticated) obtenerUsuariosAdmin().then(setAdminUsers).catch(() => null);
+  }, [authenticated]);
 
-    const authenticate = async (event) => {
+  const authenticate = async (event) => {
     event.preventDefault();
-      const usuarios = await obtenerUsuariosAdmin().catch(() => leerUsuariosAdmin());
-      const usuario = usuarios.find((item) => item.username === username && item.password === password);
-    if (usuario?.role === AGENT_ROLE && usuario.mustChangePassword) {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setAuthError(result.error || "Usuario o contraseña incorrectos.");
+        return;
+      }
+      const usuario = result.user;
       guardarSesion(usuario);
-      window.location.assign("/cambiar-password");
-      return;
-    }
-    if (usuario?.role === ADMIN_ROLE) {
+      setPassword("");
+      if (usuario.mustChangePassword) {
+        window.location.assign("/cambiar-password");
+        return;
+      }
+      if (usuario.role !== ADMIN_ROLE) {
+        setAuthError("Este usuario no tiene acceso al panel de administración.");
+        return;
+      }
       setAuthenticated(true);
       setSessionUsername(usuario.username);
-      guardarSesion(usuario);
-      return;
+      setAuthError("");
+    } catch {
+      setAuthError("No se pudo conectar con el servidor de acceso.");
     }
-    if (usuario?.role === AGENT_ROLE) {
-      window.alert("Los agentes no tienen acceso al panel de administración.");
-      return;
-    }
-    window.alert("Contraseña incorrecta.");
   };
 
-  const changePassword = (event) => {
+  const changePassword = async (event) => {
     event.preventDefault();
     if (newPassword.trim().length < 8) {
       window.alert("La contraseña debe tener al menos 8 caracteres.");
       return;
     }
 
-    const usuarios = leerUsuariosAdmin().map((usuario) => usuario.username === sessionUsername
-      ? { ...usuario, password: newPassword.trim() }
-      : usuario);
-    guardarUsuariosAdmin(usuarios);
-    localStorage.setItem(ADMIN_PASSWORD_KEY, newPassword.trim());
+    const response = await fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword.trim() }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      window.alert(result.error || "No se pudo guardar la contraseña.");
+      return;
+    }
     setNewPassword("");
     window.alert("Contraseña actualizada correctamente.");
-  };
-
-  const changeUsername = (event) => {
-    event.preventDefault();
-    const nombre = newUsername.trim();
-    if (nombre.length < 3) {
-      window.alert("El nombre de usuario debe tener al menos 3 caracteres.");
-      return;
-    }
-
-    const usuarios = leerUsuariosAdmin();
-    if (usuarios.some((usuario) => usuario.username === nombre && usuario.username !== sessionUsername)) {
-      window.alert("Ese nombre de usuario ya existe.");
-      return;
-    }
-
-    const usuariosActualizados = usuarios.map((usuario) => usuario.username === sessionUsername
-      ? { ...usuario, username: nombre }
-      : usuario);
-    guardarUsuariosAdmin(usuariosActualizados);
-    setAdminUsers(usuariosActualizados);
-    localStorage.setItem(ADMIN_USERNAME_KEY, nombre);
-    localStorage.setItem(ADMIN_SESSION_KEY, nombre);
-    setSessionUsername(nombre);
-    setNewUsername("");
-    window.alert("Nombre de usuario actualizado correctamente.");
   };
 
   const createUser = (event) => {
@@ -765,11 +838,12 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
       return;
     }
 
-    const usuariosActualizados = [...usuarios, { username: nombre, password: clave, role: AGENT_ROLE, mustChangePassword: true }];
+    const usuariosActualizados = [...usuarios, { username: nombre, password: clave, role: generatedRole, mustChangePassword: true }];
     guardarUsuariosAdmin(usuariosActualizados);
-    setAdminUsers(usuariosActualizados);
+    setAdminUsers(usuariosSinCredenciales(usuariosActualizados));
     setGeneratedUsername("");
     setGeneratedPassword("");
+    setGeneratedRole(AGENT_ROLE);
     window.alert(`Usuario creado: ${nombre}\nContraseña: ${clave}`);
   };
 
@@ -796,31 +870,68 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     }
   };
 
-  const changeRegisteredUserPassword = (usernameToUpdate) => {
-    const nuevaClave = window.prompt(`Nueva contraseña para ${usernameToUpdate}:`);
-    if (nuevaClave === null) {
-      return;
+  const resetRegisteredUserPassword = async (event) => {
+    event.preventDefault();
+    const usernameToReset = resetUsername || adminUsers[0]?.username;
+    if (!usernameToReset) return;
+    const password = generarPassword();
+    try {
+      const response = await fetch("/api/admin/users/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: usernameToReset, password }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        window.alert(result.error || "No se pudo restablecer la contraseña.");
+        return;
+      }
+      setResetUsername(usernameToReset);
+      setAdminUsers((current) => current.map((user) => user.username === usernameToReset ? result.user : user));
+      setTemporaryPassword(password);
+      if (usernameToReset === sessionUsername) {
+        localStorage.setItem(ADMIN_MUST_CHANGE_PASSWORD_KEY, "true");
+      }
+    } catch {
+      window.alert("No se pudo conectar con el servidor para restablecer la contraseña.");
     }
+  };
 
-    if (nuevaClave.trim().length < 8) {
-      window.alert("La contraseña debe tener al menos 8 caracteres.");
-      return;
+  const unlockRegisteredUser = async (usernameToUnlock) => {
+    try {
+      const response = await fetch("/api/admin/users/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: usernameToUnlock }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        window.alert(result.error || "No se pudo desbloquear el usuario.");
+        return;
+      }
+      setAdminUsers((current) => current.map((user) => user.username === usernameToUnlock ? result.user : user));
+    } catch {
+      window.alert("No se pudo conectar con el servidor para desbloquear el usuario.");
     }
+  };
 
-    const usuariosActualizados = leerUsuariosAdmin().map((usuario) => usuario.username === usernameToUpdate
-      ? { ...usuario, password: nuevaClave.trim() }
-      : usuario);
-    guardarUsuariosAdmin(usuariosActualizados);
-    if (usernameToUpdate === sessionUsername) {
-      window.alert("Tu contraseña fue actualizada. Iniciá sesión nuevamente.");
-      localStorage.removeItem(ADMIN_SESSION_KEY);
-      localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
-      localStorage.removeItem(ADMIN_ACTIVITY_KEY);
-      window.location.assign("/");
-      return;
+  const blockRegisteredUser = async (usernameToBlock) => {
+    if (!window.confirm(`¿Bloquear el acceso de ${usernameToBlock}?`)) return;
+    try {
+      const response = await fetch("/api/admin/users/block", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: usernameToBlock }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        window.alert(result.error || "No se pudo bloquear el usuario.");
+        return;
+      }
+      setAdminUsers((current) => current.map((user) => user.username === usernameToBlock ? result.user : user));
+    } catch {
+      window.alert("No se pudo conectar con el servidor para bloquear el usuario.");
     }
-
-    window.alert(`Contraseña de ${usernameToUpdate} actualizada correctamente.`);
   };
 
   const deleteRegisteredUser = (usernameToDelete) => {
@@ -850,13 +961,22 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
 
   const publish = (event) => {
     event.preventDefault();
-    if (!message.trim()) {
+    const safeMessage = DOMPurify.sanitize(message);
+    const plainMessage = new DOMParser().parseFromString(safeMessage, "text/html").body.textContent || "";
+    if (!plainMessage.trim()) {
       return;
     }
 
-    const nuevoComunicado = { message: message.trim(), date, time };
+    const publishedAt = new Date();
+    const nuevoComunicado = {
+      message: safeMessage,
+      publishedAt: publishedAt.toISOString(),
+      date: publishedAt.toLocaleDateString("es-PY", { timeZone: "America/Asuncion" }),
+      time: publishedAt.toLocaleTimeString("es-PY", { timeZone: "America/Asuncion", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }),
+    };
     onSave([nuevoComunicado, ...comunicados]);
     setMessage("");
+    setCommunicationEditorKey((key) => key + 1);
   };
 
   const deleteCommunication = (index) => {
@@ -870,7 +990,6 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
   const saveContent = (event) => {
     event.preventDefault();
     onSaveContent(combinarConfiguracion(contentDraft));
-    setShowContentEditor(false);
     window.alert("Contenido actualizado correctamente.");
   };
 
@@ -934,35 +1053,20 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
   };
 
   const addCategoryDocument = (categoryIndex) => {
-    const category = contentDraft.categories[categoryIndex];
-    const newDocumentIndex = category.documents.length;
     setContentDraft((draft) => ({
       ...draft,
       categories: draft.categories.map((categoria, index) => index === categoryIndex
         ? { ...categoria, documents: [...categoria.documents, { icon: "📄", title: "Nuevo documento", url: "https://" }] }
         : categoria),
     }));
-    setSelectedDocumentByCategory((selected) => ({ ...selected, [category.target]: newDocumentIndex }));
   };
 
   const deleteCategoryDocument = (categoryIndex, documentIndex) => {
-    const category = contentDraft.categories[categoryIndex];
-    const selectedIndex = selectedDocumentByCategory[category.target] || 0;
     setContentDraft((draft) => ({
       ...draft,
       categories: draft.categories.map((categoria, index) => index === categoryIndex
         ? { ...categoria, documents: categoria.documents.filter((_, itemIndex) => itemIndex !== documentIndex) }
         : categoria),
-    }));
-    setSelectedDocumentByCategory((selected) => ({
-      ...selected,
-      [category.target]: category.documents.length <= 1
-        ? 0
-        : selectedIndex === documentIndex
-          ? Math.min(documentIndex, category.documents.length - 2)
-          : selectedIndex > documentIndex
-            ? selectedIndex - 1
-            : selectedIndex,
     }));
   };
 
@@ -982,7 +1086,6 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
         },
       ],
     }));
-    setShowContentEditor(true);
   };
 
   const deleteCategory = (index) => {
@@ -1012,6 +1115,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
               Contraseña
               <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
             </label>
+            {authError && <p className="public-login-error" role="alert">{authError}</p>}
             <button type="submit">Ingresar</button>
           </form>
         </main>
@@ -1023,7 +1127,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} admin username={sessionUsername} />
       <main className="admin-page">
-        {adminSection && <NavigationLinks admin />}
+        {adminSection && <NavigationLinks admin backHref="/admin" />}
         {!adminSection ? (
           <section className="admin-menu">
             <div className="admin-menu-header">
@@ -1080,20 +1184,11 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
         {adminSection === "nuevo" && <section className="admin-form">
           <h1>Nuevo comunicado</h1>
           <form onSubmit={publish}>
-            <label>
-              Mensaje
-              <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows="8" placeholder="Escribe el comunicado..." />
-            </label>
-            <div className="admin-fields">
-              <label>
-                Fecha
-                <input value={date} onChange={(event) => setDate(event.target.value)} />
-              </label>
-              <label>
-                Hora
-                <input value={time} onChange={(event) => setTime(event.target.value)} />
-              </label>
+            <div className="communication-editor-field">
+              <span>Mensaje</span>
+              <CommunicationEditor key={communicationEditorKey} onChange={setMessage} />
             </div>
+            <p className="communication-timestamp-note">La fecha y hora exactas de Paraguay se registran automáticamente al publicar.</p>
             <button type="submit">Publicar comunicado</button>
           </form>
         </section>}
@@ -1115,13 +1210,21 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
           <h2>Usuarios y acceso</h2>
           <p>Usuario activo: <strong>{sessionUsername}</strong></p>
           <div className="access-forms">
-            <form onSubmit={changeUsername}>
-              <h3>Cambiar nombre de usuario</h3>
+            <form onSubmit={resetRegisteredUserPassword}>
+              <h3>Restablecer contraseña de un usuario</h3>
               <label>
-                Nuevo nombre de usuario
-                <input type="text" value={newUsername} onChange={(event) => setNewUsername(event.target.value)} minLength="3" required />
+                Elegir usuario
+                <select value={resetUsername || adminUsers[0]?.username || ""} onChange={(event) => { setResetUsername(event.target.value); setTemporaryPassword(""); }} required>
+                  {adminUsers.map((usuario) => <option key={usuario.username} value={usuario.username}>{usuario.username}</option>)}
+                </select>
               </label>
-              <button type="submit">Guardar usuario</button>
+              <p>Genera una contraseña temporal aleatoria y la exige al próximo inicio de sesión.</p>
+              <button type="submit" disabled={!adminUsers.length}>Generar contraseña temporal</button>
+              {temporaryPassword && <label className="temporary-password-result">
+                Contraseña temporal (copiala ahora)
+                <input type="text" value={temporaryPassword} readOnly onFocus={(event) => event.target.select()} />
+              </label>}
+              {temporaryPassword && resetUsername === sessionUsername && <button className="secondary-admin-button" type="button" onClick={() => window.location.assign("/cambiar-password")}>Continuar para cambiarla</button>}
             </form>
             <form onSubmit={changePassword}>
               <h3>Cambiar contraseña</h3>
@@ -1136,13 +1239,19 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
             <h3>Usuarios registrados</h3>
             {adminUsers.map((usuario) => (
               <div className="admin-user-row" key={usuario.username}>
-                <strong>{usuario.username}</strong>
+                <div className="admin-user-identity">
+                  <strong>{usuario.username}</strong>
+                  <small className={usuario.locked ? "admin-user-locked" : "admin-user-unlocked"}>
+                    {usuario.blockedByAdmin ? "Bloqueado manualmente por administración" : usuario.role === ADMIN_ROLE ? "Acceso activo · sin bloqueo por intentos fallidos" : usuario.locked ? "Bloqueado por intentos fallidos" : `Acceso activo · ${usuario.failedAttempts || 0}/3 intentos fallidos`}
+                  </small>
+                </div>
                 <div className="admin-user-actions">
-                  <select value={usuario.role} onChange={(event) => updateUserRole(usuario.username, event.target.value)} aria-label={`Rol de ${usuario.username}`}>
+                  <select className="admin-role-select" value={usuario.role} onChange={(event) => updateUserRole(usuario.username, event.target.value)} aria-label={`Rol de ${usuario.username}`}>
                     <option value={ADMIN_ROLE}>Administrador</option>
                     <option value={AGENT_ROLE}>Agente</option>
                   </select>
-                  <button className="secondary-admin-button" type="button" onClick={() => changeRegisteredUserPassword(usuario.username)}>Cambiar contraseña</button>
+                  {usuario.locked && <button className="secondary-admin-button" type="button" onClick={() => unlockRegisteredUser(usuario.username)}>Desbloquear</button>}
+                  {!usuario.locked && usuario.username !== sessionUsername && <button className="secondary-admin-button admin-block-user-button" type="button" onClick={() => blockRegisteredUser(usuario.username)}>Bloquear usuario</button>}
                   <button className="editor-delete-button" type="button" onClick={() => deleteRegisteredUser(usuario.username)}>Eliminar</button>
                 </div>
               </div>
@@ -1159,6 +1268,13 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 Contraseña
                 <input type="text" value={generatedPassword} onChange={(event) => setGeneratedPassword(event.target.value)} minLength="8" required />
               </label>
+              <label>
+                Elegir rol
+                <select className="admin-role-select" value={generatedRole} onChange={(event) => setGeneratedRole(event.target.value)}>
+                  <option value={AGENT_ROLE}>Agente</option>
+                  <option value={ADMIN_ROLE}>Administrador</option>
+                </select>
+              </label>
             </div>
             <div className="access-actions">
               <button className="secondary-admin-button" type="button" onClick={fillGeneratedPassword}>Generar contraseña</button>
@@ -1173,22 +1289,22 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
               <h2>Editar contenido de toda la página</h2>
               <p>Modifica los textos, enlaces, categorías y procesos sin tocar el código.</p>
             </div>
-            <button
-              className="edit-content-button"
-              type="button"
-              onClick={() => setShowContentEditor((visible) => !visible)}
-              title="Editar contenido"
-            >
-              ✎ <span>{showContentEditor ? "Cerrar editor" : "Editar contenido"}</span>
-            </button>
           </div>
 
-          {showContentEditor && (
-            <form className="visual-content-editor" onSubmit={saveContent}>
+          <form className="visual-content-editor" onSubmit={saveContent}>
+            <div className="admin-content-tools">
+              <p>Importá documentos desde sus enlaces originales para actualizarlos.</p>
               <button className="editor-import-button" type="button" onClick={importDocuments} disabled={importingDocuments}>
                 {importingDocuments ? "Importando documentos..." : "↓ Importar o actualizar documentos"}
               </button>
-              <h3>Identidad visual</h3>
+            </div>
+            <div className="admin-editor-savebar">
+              <span>Guardá para publicar los cambios en el sitio.</span>
+              <button type="submit">Guardar cambios</button>
+            </div>
+            <details className="admin-editor-section" open>
+              <summary><span><strong>Identidad visual</strong><small>Logo, colores e imagen de fondo</small></span><span className="admin-editor-section-count">4 opciones</span></summary>
+              <div className="admin-editor-section-body">
               <label>
                 URL del logo
                 <input type="url" placeholder="Dejar logo predeterminado" value={contentDraft.logoUrl || ""} onChange={(event) => updateContentField("logoUrl", event.target.value)} />
@@ -1209,8 +1325,12 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
               <button className="editor-reset-button" type="button" onClick={() => setContentDraft((draft) => ({ ...draft, logoUrl: "", backgroundColor: "", backgroundImage: "" }))}>
                 Restaurar logo y fondo predeterminados
               </button>
+              </div>
+            </details>
 
-              <h3>Textos principales</h3>
+            <details className="admin-editor-section">
+              <summary><span><strong>Textos principales</strong><small>Títulos y descripciones de cada sección</small></span><span className="admin-editor-section-count">13 campos</span></summary>
+              <div className="admin-editor-section-body admin-editor-field-grid">
               {[
                 ["headerSubtitle", "Subtítulo del encabezado"],
                 ["communicationsTitle", "Título de comunicados"],
@@ -1231,8 +1351,12 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                   <input value={contentDraft[field] || ""} onChange={(event) => updateContentField(field, event.target.value)} />
                 </label>
               ))}
+              </div>
+            </details>
 
-              <h3>Enlaces</h3>
+            <details className="admin-editor-section">
+              <summary><span><strong>Enlaces y preguntas frecuentes</strong><small>Direcciones y contenido integrado</small></span><span className="admin-editor-section-count">3 opciones</span></summary>
+              <div className="admin-editor-section-body">
               {["faqUrl", "suggestionsUrl"].map((field) => (
                 <label key={field}>
                   {field === "faqUrl" ? "Enlace de preguntas frecuentes" : "Enlace del formulario de sugerencias"}
@@ -1244,13 +1368,22 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 Contenido integrado de preguntas frecuentes (Markdown)
                 <textarea rows="10" value={contentDraft.faqContent || ""} onChange={(event) => updateContentField("faqContent", event.target.value)} placeholder="Pegá o editá aquí el contenido de las preguntas frecuentes" />
               </label>
+              </div>
+            </details>
 
-              <h3>Categorías</h3>
+            <details className="admin-editor-section">
+              <summary><span><strong>Categorías y documentos</strong><small>Guías, textos y capturas organizados por categoría</small></span><span className="admin-editor-section-count">{contentDraft.categories.length} categorías</span></summary>
+              <div className="admin-editor-section-body">
               {contentDraft.categories.map((categoria, index) => (
-                <div className="editor-category-block" key={`${categoria.target}-${index}`}>
+                <details className="editor-category-block" key={`${categoria.target}-${index}`}>
+                  <summary className="editor-category-summary">
+                    <strong>{categoria.icon || "📁"} {categoria.title || `Categoría ${index + 1}`}</strong>
+                    <span>{categoria.documents.length} documentos</span>
+                  </summary>
+                  <div className="editor-category-content">
                   <div className="editor-category-heading">
-                    <h4>{categoria.title || `Categoría ${index + 1}`}</h4>
-                    <button className="editor-delete-button" type="button" onClick={() => deleteCategory(index)}>Eliminar</button>
+                    <h4>Detalles de categoría</h4>
+                    <button className="editor-delete-button" type="button" onClick={() => deleteCategory(index)}>Eliminar categoría</button>
                   </div>
                   <div className="editor-row">
                   <input aria-label="Icono de categoría" value={categoria.icon} onChange={(event) => updateListItem("categories", index, "icon", event.target.value)} />
@@ -1266,83 +1399,47 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                     <div className="category-documents-heading">
                       <div>
                         <h5>Documentos de {categoria.title}</h5>
-                        <small>Seleccioná un documento para editar su contenido y revisar las capturas.</small>
+                        <small>Elegí un documento para abrir directamente su editor.</small>
                       </div>
                       <button className="editor-add-button" type="button" onClick={() => addCategoryDocument(index)}>+ Agregar documento</button>
                     </div>
-                    {categoria.documents.length > 0 ? (() => {
-                      const selectedDocumentIndex = Math.min(selectedDocumentByCategory[categoria.target] || 0, categoria.documents.length - 1);
-                      const selectedDocument = categoria.documents[selectedDocumentIndex];
-                      const tabId = `document-tab-${categoria.target}-${selectedDocumentIndex}`;
-                      const panelId = `document-panel-${categoria.target}-${selectedDocumentIndex}`;
-
-                      return (
-                        <>
-                          <div className="editor-document-tabs" role="tablist" aria-label={`Documentos de ${categoria.title}`}>
-                            {categoria.documents.map((document, documentIndex) => (
-                              <div className="editor-document-tab-item" key={`${categoria.target}-document-tab-${documentIndex}`}>
-                                <button
-                                  id={`document-tab-${categoria.target}-${documentIndex}`}
-                                  className={`editor-document-tab${selectedDocumentIndex === documentIndex ? " is-active" : ""}`}
-                                  type="button"
-                                  role="tab"
-                                  aria-selected={selectedDocumentIndex === documentIndex}
-                                  aria-controls={`document-panel-${categoria.target}-${documentIndex}`}
-                                  onClick={() => setSelectedDocumentByCategory((selected) => ({ ...selected, [categoria.target]: documentIndex }))}
-                                >
-                                  <span>{document.icon || "📄"}</span>
-                                  <span>{document.title || `Documento ${documentIndex + 1}`}</span>
-                                </button>
-                                <button
-                                  className="editor-document-tab-delete"
-                                  type="button"
-                                  aria-label={`Eliminar ${document.title || `documento ${documentIndex + 1}`}`}
-                                  onClick={() => deleteCategoryDocument(index, documentIndex)}
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            ))}
+                    {categoria.documents.length > 0 ? (
+                      <div className="editor-document-list" aria-label={`Documentos de ${categoria.title}`}>
+                        {categoria.documents.map((document, documentIndex) => (
+                          <div className="editor-document-row" key={`${categoria.target}-document-row-${documentIndex}`}>
+                            <a className="editor-document-open" href={getAdminDocumentEditorRoute(categoria, document)}>
+                              <span className="editor-document-row-icon" aria-hidden="true">{document.icon || "📄"}</span>
+                              <span className="editor-document-row-title">{document.title || `Documento ${documentIndex + 1}`}</span>
+                              <span className="editor-document-row-action">Abrir editor <span aria-hidden="true">→</span></span>
+                            </a>
+                            <button
+                              className="editor-document-tab-delete"
+                              type="button"
+                              aria-label={`Eliminar ${document.title || `documento ${documentIndex + 1}`}`}
+                              onClick={() => deleteCategoryDocument(index, documentIndex)}
+                            >
+                              ×
+                            </button>
                           </div>
-                          <section className="editor-document-workspace editor-document-preview-only" id={panelId} role="tabpanel" aria-labelledby={tabId}>
-                            <div className="editor-document-preview editor-document-preview-full">
-                              <div className="editor-document-preview-heading">
-                                <div>
-                                  <strong>Vista previa</strong>
-                                  <small>{selectedDocument.content ? "Documento completo con texto e imágenes" : "Todavía no hay contenido integrado"}</small>
-                                </div>
-                                <a
-                                  className="editor-document-edit-link"
-                                  href={getAdminDocumentEditorRoute(categoria, selectedDocument)}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  Editar en otra pestaña ↗
-                                </a>
-                              </div>
-                              {selectedDocument.content ? (
-                                <div className="editor-document-preview-content">
-                                  <div dangerouslySetInnerHTML={{ __html: documentoAHtml(selectedDocument.content) }} />
-                                </div>
-                              ) : (
-                                <div className="editor-document-preview-empty">El contenido aparecerá aquí cuando esté integrado.</div>
-                              )}
-                            </div>
-                          </section>
-                        </>
-                      );
-                    })() : (
+                        ))}
+                      </div>
+                    ) : (
                       <div className="editor-document-preview-empty">Todavía no hay documentos en esta categoría.</div>
                     )}
                   </div>
-                </div>
+                  </div>
+                </details>
               ))}
 
               <button className="editor-add-button" type="button" onClick={addCategory}>
                 + Crear nueva categoría
               </button>
+              </div>
+            </details>
 
-              <h3>Procesos más utilizados</h3>
+            <details className="admin-editor-section">
+              <summary><span><strong>Procesos más utilizados</strong><small>Accesos destacados de la página principal</small></span><span className="admin-editor-section-count">{contentDraft.processes.length} procesos</span></summary>
+              <div className="admin-editor-section-body">
               {contentDraft.processes.map((proceso, index) => (
                 <div className="editor-row editor-process-row" key={`process-${index}`}>
                   <input aria-label="Título del proceso" value={proceso.title} onChange={(event) => updateListItem("processes", index, "title", event.target.value)} />
@@ -1350,10 +1447,14 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                   <input aria-label="Enlace del proceso" type="url" value={proceso.url} onChange={(event) => updateListItem("processes", index, "url", event.target.value)} />
                 </div>
               ))}
+              </div>
+            </details>
 
+            <div className="admin-editor-savebar admin-editor-savebar-bottom">
+              <span>Los cambios se aplicarán a todo el sitio.</span>
               <button type="submit">Guardar todos los cambios</button>
-            </form>
-          )}
+            </div>
+          </form>
         </section>}
       </main>
     </div>
@@ -1383,11 +1484,34 @@ function App() {
   const cambioPasswordPendiente = localStorage.getItem(ADMIN_MUST_CHANGE_PASSWORD_KEY) === "true";
 
   useEffect(() => {
-    fetch("/api/config")
-      .then((response) => response.json())
-      .then((config) => setContent(combinarConfiguracion(config)))
-      .catch(() => null)
-      .finally(() => setConfigLoaded(true));
+    let configEtag = "";
+    let disposed = false;
+    let loadingConfig = false;
+    const loadConfig = async () => {
+      if (loadingConfig || disposed) return;
+      loadingConfig = true;
+      try {
+        const response = await fetch("/api/config", {
+          cache: "no-cache",
+          headers: configEtag ? { "If-None-Match": configEtag } : {},
+        });
+        if (response.status === 304 || !response.ok) return;
+        const config = await response.json();
+        configEtag = response.headers.get("ETag") || "";
+        if (!disposed) setContent(combinarConfiguracion(config));
+      } catch {
+        // Keep the last loaded content when the server is temporarily unavailable.
+      } finally {
+        loadingConfig = false;
+        if (!disposed) setConfigLoaded(true);
+      }
+    };
+
+    loadConfig();
+    const refreshTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") loadConfig();
+    }, 10000);
+    window.addEventListener("focus", loadConfig);
 
     fetch("/api/comunicados")
       .then((response) => response.json())
@@ -1396,6 +1520,12 @@ function App() {
         localStorage.setItem(COMUNICADOS_KEY, JSON.stringify(comunicadosDelServidor));
       })
       .catch(() => null);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(refreshTimer);
+      window.removeEventListener("focus", loadConfig);
+    };
   }, []);
 
   useEffect(() => {
@@ -1504,6 +1634,9 @@ function App() {
       </div>
     );
   }
+
+  if (ruta === "modulos") return <ModulePicker content={content} />;
+  if (ruta === "orbital-pay") return <OrbitalPayPage content={content} />;
 
   if (ruta === "documentos/preguntas-frecuentes") {
     return <DocumentPage document={{ icon: "❓", title: content.faqLinkTitle, content: content.faqContent, url: content.faqUrl }} category={{ title: content.faqTitle }} content={content} />;

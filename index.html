@@ -4,7 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/orbital-favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>orbital-wallet</title>
+    <style>
+      html, body, #root { background: #080808; }
+      body { background-image: linear-gradient(135deg, #080808 0%, #151515 52%, #3b0008 100%); }
+      html[data-theme="light"], html[data-theme="light"] body, html[data-theme="light"] #root { background: #edf1f4; }
+    </style>
+    <script>
+      try { if (localStorage.getItem("orbital-wallet-theme") === "light") document.documentElement.dataset.theme = "light"; } catch {}
+    </script>
+    <title>Orbital Solutions</title>
   </head>
   <body>
     <div id="root"></div>

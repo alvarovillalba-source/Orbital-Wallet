@@ -33,8 +33,16 @@ async function uploadClipboardImage(file) {
   return result.url;
 }
 
-function DocumentFormattingToolbar({ editor }) {
+export function DocumentFormattingToolbar({ editor, applyFontToAllWhenSelectionEmpty = false }) {
   if (!editor) return null;
+
+  const applyFontFamily = (fontFamily) => {
+    const chain = editor.chain().focus();
+    if (applyFontToAllWhenSelectionEmpty && editor.state.selection.empty && editor.getText().trim()) {
+      chain.selectAll();
+    }
+    chain.setFontFamily(fontFamily).run();
+  };
 
   const applyLink = () => {
     const href = window.prompt("Dirección del enlace:");
@@ -68,7 +76,7 @@ function DocumentFormattingToolbar({ editor }) {
       {formatButton("↶", "Deshacer", () => editor.chain().focus().undo().run())}
       {formatButton("↷", "Rehacer", () => editor.chain().focus().redo().run())}
       <span className="document-format-divider" />
-      <select aria-label="Fuente" title="Fuente" defaultValue="" onChange={(event) => event.target.value && editor.chain().focus().setFontFamily(event.target.value).run()}>
+      <select aria-label="Fuente" title="Fuente" defaultValue="" onChange={(event) => event.target.value && applyFontFamily(event.target.value)}>
         <option value="" disabled>Fuente</option>
         <option value="Lexend" style={{ fontFamily: "Lexend, sans-serif" }}>Lexend</option>
         <option value="Arial">Arial</option>
@@ -148,10 +156,12 @@ export default function DocumentRichEditor({ document, category, content, getBra
         const inlineImages = [...parsedHtml.body.querySelectorAll("img[src^='data:image/']")];
         const clipboardFiles = inlineImages.length
           ? []
-          : [...(clipboard.items || [])]
-            .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
-            .map((item) => item.getAsFile())
-            .filter(Boolean);
+          : [...new Set([
+            ...[...(clipboard.items || [])]
+              .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+              .map((item) => item.getAsFile()),
+            ...[...(clipboard.files || [])],
+          ].filter(Boolean))];
         if (!inlineImages.length && !clipboardFiles.length) return false;
 
         event.preventDefault();
@@ -169,18 +179,27 @@ export default function DocumentRichEditor({ document, category, content, getBra
               const file = fileFromClipboardDataUrl(image.getAttribute("src") || "", index + 1);
               if (file) image.setAttribute("src", await uploadClipboardImage(file));
             }
-          } else if (!parsedHtml.body.querySelector("img")) {
+          } else {
+            const htmlImages = [...parsedHtml.body.querySelectorAll("img")];
             for (const [index, file] of clipboardFiles.entries()) {
-              const image = parsedHtml.createElement("img");
-              image.setAttribute("src", await uploadClipboardImage(file));
-              image.setAttribute("alt", `Captura pegada ${index + 1}`);
-              parsedHtml.body.append(image);
+              const imageUrl = await uploadClipboardImage(file);
+              const image = htmlImages[index];
+              if (image) {
+                image.setAttribute("src", imageUrl);
+                if (!image.getAttribute("alt")) image.setAttribute("alt", `Captura pegada ${index + 1}`);
+              } else {
+                const pastedImage = parsedHtml.createElement("img");
+                pastedImage.setAttribute("src", imageUrl);
+                pastedImage.setAttribute("alt", `Captura pegada ${index + 1}`);
+                parsedHtml.body.append(pastedImage);
+              }
             }
           }
 
           if (!view.isDestroyed) {
             const safeHtml = DOMPurify.sanitize(parsedHtml.body.innerHTML);
-            const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(safeHtml);
+            const sanitizedDocument = new DOMParser().parseFromString(safeHtml, "text/html");
+            const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(sanitizedDocument.body);
             view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
             setStatus("Captura pegada. Guardá el documento para conservarla.");
           }
@@ -226,7 +245,7 @@ export default function DocumentRichEditor({ document, category, content, getBra
       <Header content={content} />
       <main className="admin-page">
         <div className="admin-form admin-document-editor-page">
-          <NavigationLinks admin />
+          <NavigationLinks admin backHref="/admin/contenido" />
           <div className="admin-document-editor-heading">
             <div>
               <small>{category.title}</small>
@@ -238,6 +257,10 @@ export default function DocumentRichEditor({ document, category, content, getBra
             </a>
           </div>
           <form className="admin-document-editor-form" onSubmit={saveDocument}>
+            <div className="admin-document-editor-actions">
+              {status && <p role="status">{status}</p>}
+              <button type="submit" disabled={saving || !editor}>{saving ? "Guardando..." : "Guardar documento"}</button>
+            </div>
             <div className="admin-document-metadata">
               <label>
                 Icono
@@ -256,10 +279,6 @@ export default function DocumentRichEditor({ document, category, content, getBra
               <label>Contenido del documento</label>
               <DocumentFormattingToolbar editor={editor} />
               <div className="document-rich-editor"><EditorContent editor={editor} /></div>
-            </div>
-            <div className="admin-document-editor-actions">
-              {status && <p role="status">{status}</p>}
-              <button type="submit" disabled={saving || !editor}>{saving ? "Guardando..." : "Guardar documento"}</button>
             </div>
           </form>
         </div>

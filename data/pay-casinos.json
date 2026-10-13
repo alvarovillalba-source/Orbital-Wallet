@@ -1,0 +1,60 @@
+[
+  {
+    "id": "1791338131787",
+    "name": "Axar Latino Argentina (Azar 777)",
+    "contact": "Alvaro Villalba",
+    "status": "Activo",
+    "paymentMethods": [
+      "HG CASH",
+      "ualá",
+      "Estu Wallet",
+      "DCP"
+    ],
+    "reports": []
+  },
+  {
+    "id": "1791338144807",
+    "name": "Azar Latino Paraguay",
+    "contact": "Alvaro Villalba",
+    "status": "Activo",
+    "paymentMethods": [
+      "BNF",
+      "Tigo Money",
+      "Personal Pay"
+    ],
+    "reports": [
+      {
+        "id": "ec6d848c-0ea6-47d9-b995-28f919e99c51",
+        "title": "closed_day_pay_reconciliation_2026-10-05_067-00-6704696.xlsx",
+        "date": "2026-10-07",
+        "account": "",
+        "counts": {
+          "movements": "",
+          "approved": "",
+          "noWithdrawal": "",
+          "notApproved": "",
+          "ambiguous": ""
+        },
+        "analysis": "",
+        "manualReply": "",
+        "attachment": {
+          "url": "/api/pay/documento/1791338144807/8109891eb3ef278d8e0f4fc4.xlsx?name=closed_day_pay_reconciliation_2026-10-05_067-00-6704696.xlsx",
+          "name": "closed_day_pay_reconciliation_2026-10-05_067-00-6704696.xlsx",
+          "size": 4775414
+        },
+        "createdAt": "2026-10-07T02:04:59.127Z",
+        "author": "Alvaro Villalba"
+      }
+    ]
+  },
+  {
+    "id": "467883b8-dca5-4b98-873b-744806cac63b",
+    "name": "Azar 365",
+    "contact": "Alvaro Villalba",
+    "status": "Activo",
+    "paymentMethods": [
+      "HG CASH"
+    ],
+    "reports": []
+  }
+]

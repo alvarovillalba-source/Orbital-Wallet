@@ -1,18 +1,131 @@
 [
   {
-    "username": "admin",
-    "password": "orbital-wallet-admin",
-    "role": "administrador"
-  },
-  {
     "username": "Alvaro Villalba",
-    "password": "**ShadowGun181**",
-    "role": "administrador"
+    "role": "administrador",
+    "passwordHash": "1c56cf3f84e576a0bd324468d4b55bc6:c21f7ce15b62d99748adfe1cf166607b425e94816751c54168f82a076884db920d19e971a624675e1a927c827cb0f4eec09f9b118a3691c53ef817f9b674f09c",
+    "failedAttempts": 0,
+    "locked": false,
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
   },
   {
     "username": "Rocio Espinola",
-    "password": "31121934",
     "role": "agente",
-    "mustChangePassword": false
+    "mustChangePassword": false,
+    "passwordHash": "c455cac591f27ee927887fa820ce33d9:2f2e7ac3e722ac75ca2a915182e84a7a2483d46a0c9ca5bf81871a84db50aeb43e0811c7a2a01e64df05f2733811c2947519967657d103f71bdfce117936364d",
+    "failedAttempts": 0,
+    "locked": false,
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
+  },
+  {
+    "username": "Iván Caceres",
+    "role": "administrador",
+    "mustChangePassword": true,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "a57dafea72ca17e9d268b6e0e70c7c13:e3181962a37629f55d5ce204d0312ffe01f29c557277c56e0614443a97f759f9cadfaa61f8e5d746bff20474e822588e5f1c9dd4c5e1470c098affe1fca51588",
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
+  },
+  {
+    "username": "Matias Acosta",
+    "role": "administrador",
+    "mustChangePassword": true,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "3faad8392aa364b1028981f77dff8ce3:3bd4c5bff85e18d88b0a33dc0fd05da820f5751f09162a7b994a86e1ed92cc3c453d7c768555737dee78b12916e7f38ca58a7ac74034fb725bac1432cd2eccaf",
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
+  },
+  {
+    "username": "Tamara Lobos",
+    "role": "agente",
+    "mustChangePassword": true,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "e076b2540c8bbbee3b6c9f98558bb826:3b46cc069e743d068a1b6b70c84cf2dae074d61769506f566f659079022d244da21fc3ceed83de4685f92e5105b320c00094905d7c19e22061e8bf884ac8ba78",
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
+  },
+  {
+    "username": "Elba Gonzalez",
+    "role": "agente",
+    "mustChangePassword": true,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "200ed9c2bf78a4ed862856f65e2e73c9:506f15320291f3f469355da71a3ef5ce90ae94881b5ec5a0cbbfe5d41c77ac763f487edd96875b18c310c9b20f13897b9a49b55904c4607d7ea07a0fbded22bc",
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
+  },
+  {
+    "username": "Eder Ortiz",
+    "role": "administrador",
+    "mustChangePassword": false,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "883d52832c5f45988947471bdc522368:c41eec7abdeb298f8aa5307f70fe6e0f0e199ada8e94877b74d554ab43ed0a939a938c201acdf5fdab8c90f0ccfa98da642cacca280260ed9a008f8d9bc5a53a",
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
+  },
+  {
+    "username": "Oscar",
+    "role": "administrador",
+    "mustChangePassword": false,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "758206028c23609c5991eecde8ca9f07:99807c80ba40dd248f307131ab10333b442e2d81402d66f2b0acdc25a164411a8f9426ef6fbd2b19ea4683cea2212986a1a4af2440d9566649244a401b1bb79e",
+    "blockedByAdmin": false,
+    "projects": [
+      "wallet",
+      "pay"
+    ]
+  },
+  {
+    "username": "Sofia",
+    "role": "administrador",
+    "projects": [
+      "wallet",
+      "pay"
+    ],
+    "mustChangePassword": false,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "fac54af7651dff18d182956a56c9b244:6f9aa5d18ac046f1345f345122fc23ae44b33902d02c05ebc91843036f36e8f72568fc114f1eae1331368aec241db4f337dbddcd525e6c3c25978d83086ee29d",
+    "blockedByAdmin": false
+  },
+  {
+    "username": "Prueba",
+    "role": "agente",
+    "projects": [
+      "wallet",
+      "pay"
+    ],
+    "mustChangePassword": false,
+    "failedAttempts": 0,
+    "locked": false,
+    "passwordHash": "5195006015286348bcee2f83c2ab5f6b:c71125ef4d1d2287d57ad4578fdc4b0ef6b0c31c6af489daecc9144b49e5d0ac054e5bc200a7b64d7a198d07398d7f69891e7e68c1057f270cc2edd4f509cc4b",
+    "blockedByAdmin": false
   }
 ]

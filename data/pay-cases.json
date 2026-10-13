@@ -1,0 +1,15 @@
+[
+  {
+    "id": "8d6d545e370d54f9826e2b76c8259eba",
+    "casinoId": "1791338131787",
+    "casino": "Axar Latino Argentina (Azar 777)",
+    "paymentMethod": "HG CASH",
+    "playerId": "1234567",
+    "transactionId": "1234567",
+    "externalOrderId": "1234567",
+    "operation": "Depósito",
+    "createdAt": "2026-10-13T00:21:19.108Z",
+    "agentName": "Prueba",
+    "author": "Prueba"
+  }
+]

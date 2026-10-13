@@ -1,0 +1,65 @@
+[
+  {
+    "id": "854c8f36-41d3-4456-be01-a7655dda24d9",
+    "project": "wallet",
+    "name": "BackOffice Orbital Wallet",
+    "url": "https://d2pktw9naong5k.cloudfront.net/login?callbackUrl=https%3A%2F%2Fd2pktw9naong5k.cloudfront.net%2Fdashboard",
+    "description": ""
+  },
+  {
+    "id": "1d61a4a0-2bfc-492c-871b-11e888f6c6fd",
+    "project": "wallet",
+    "name": "Orbital Chat",
+    "url": "https://backoffice.orbitalchat.dev/login",
+    "description": ""
+  },
+  {
+    "id": "60271269-499f-4e90-8071-d32c41b3de53",
+    "project": "pay",
+    "name": "Orbital Pay",
+    "url": "https://backoffice.orbitalsolutions.dev/es/login",
+    "description": ""
+  },
+  {
+    "id": "b82f2a6b-9e84-4bf6-9401-de69b8b99f83",
+    "project": "pay",
+    "name": "HG CASH",
+    "url": "https://hg.cash/es/login",
+    "description": ""
+  },
+  {
+    "id": "0f5d14af-a6b8-42fd-8670-6b9f8af3d407",
+    "project": "pay",
+    "name": "DCP - Digital Crypto Pay",
+    "url": "https://merchant.digitalcryptopay.com/login",
+    "description": ""
+  },
+  {
+    "id": "671d93bd-5443-4f12-976e-c58c3a8d9946",
+    "project": "pay",
+    "name": "Personal Pay",
+    "url": "https://sg.personal.com.py/2factor/#/v2/login?fredirect=https:%2F%2Fwww.personal.com.py%2Fbilletera-portal-backend-web%2F&fapp=billback",
+    "description": ""
+  },
+  {
+    "id": "e22f55fc-7708-480d-88ab-930316ad919c",
+    "project": "pay",
+    "name": "Centrivo - Azar 365",
+    "url": "https://al.bopanel.com/auth/login",
+    "description": ""
+  },
+  {
+    "id": "75f71f81-22ad-4a0c-b19e-2e72b6f77023",
+    "project": "pay",
+    "name": "Dinaria - Uala",
+    "url": "https://dashboard.dinaria.com/",
+    "description": ""
+  },
+  {
+    "id": "00cf42cd-d956-4866-aa2d-87ef1b762180",
+    "project": "pay",
+    "name": "Estu Wallet",
+    "url": "https://clientes.1touchpay.net/login",
+    "description": ""
+  }
+]
