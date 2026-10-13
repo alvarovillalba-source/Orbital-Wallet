@@ -4513,3 +4513,84 @@ footer small {
   color: #b90f25;
   box-shadow: 0 5px 14px rgba(15, 23, 42, .09);
 }
+
+/* Movimiento y acabado coherentes en toda la interfaz. */
+:root {
+  color-scheme: dark;
+  --motion-fast: 160ms;
+  --motion-smooth: 240ms;
+  --icon-accent: #ff8290;
+  --icon-surface: rgba(237, 27, 47, .14);
+  --icon-border: rgba(255, 102, 117, .28);
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --icon-accent: #c91021;
+  --icon-surface: #fff0f2;
+  --icon-border: #f0c5cb;
+}
+
+.app,
+.app main,
+.app header,
+.app footer,
+.app article,
+.app section,
+.app aside,
+.app details,
+.app input,
+.app select,
+.app textarea {
+  transition: color var(--motion-smooth) ease, background-color var(--motion-smooth) ease,
+    border-color var(--motion-smooth) ease, box-shadow var(--motion-smooth) ease;
+}
+.app :is(button, a, summary) { transition-duration: var(--motion-fast); }
+.app :is(.module-card, .admin-menu-tile, .category-link, .pay-guide-card, .portal-card,
+  .pay-casino-action, .pay-case-admin-link, .communication-card) {
+  transition: transform var(--motion-smooth) cubic-bezier(.2,.75,.25,1),
+    border-color var(--motion-fast) ease, background-color var(--motion-fast) ease,
+    box-shadow var(--motion-smooth) ease;
+}
+.app :is(.module-card, .admin-menu-tile, .category-link, .pay-guide-card, .portal-card,
+  .pay-casino-action, .pay-case-admin-link, .communication-card):hover {
+  transform: translateY(-2px);
+}
+.app :is(input, select, textarea, [contenteditable="true"]):focus-visible {
+  outline: 2px solid #ed5364;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(237, 27, 47, .12);
+}
+
+/* Iconos con contraste temático y una base visual uniforme. */
+.app :is(.category-icon, .category-detail-icon, .integrated-document-icon,
+  .admin-menu-panel-icon, .admin-menu-action-icon, .admin-menu-tile-icon,
+  .editor-document-row-icon, .editor-document-icon, .pay-guide-icon,
+  .pay-casino-action-icon, .pay-total-icon, .casino-report-toggle-icon,
+  .portal-card-icon, .navigation-link-icon, .header-option-icon) {
+  color: var(--icon-accent);
+  border-color: var(--icon-border);
+  background-color: var(--icon-surface);
+  transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease, transform var(--motion-fast) ease;
+}
+.app :is(.category-icon, .category-detail-icon, .integrated-document-icon,
+  .admin-menu-panel-icon, .admin-menu-action-icon, .admin-menu-tile-icon,
+  .editor-document-row-icon, .editor-document-icon, .pay-guide-icon,
+  .pay-casino-action-icon, .pay-total-icon, .casino-report-toggle-icon,
+  .portal-card-icon, .navigation-link-icon, .header-option-icon) svg {
+  color: currentColor;
+  stroke: currentColor;
+}
+.app :is(.category-link, .module-card, .admin-menu-tile, .pay-guide-card-link,
+  .portal-card > a):hover :is(.category-icon, .admin-menu-tile-icon, .pay-guide-icon, .portal-card-icon) {
+  transform: scale(1.06);
+}
+.app svg { transition: color var(--motion-fast) ease, transform var(--motion-fast) ease; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
