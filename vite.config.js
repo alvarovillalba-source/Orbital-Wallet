@@ -548,6 +548,26 @@ function comunicadosApi() {
         }
       })
 
+      server.middlewares.use('/api/pay/reportes', async (request, response, next) => {
+        if (request.method !== 'POST') return next()
+        const actor = currentSessionUser(request)
+        if (!actor || (actor.role !== 'administrador' && !actor.projects?.includes('pay'))) return sendJson(response, 403, { error: 'No tenés acceso a Orbital Pay.' })
+        try {
+          const input = await readRequestBody(request)
+          const textFields = ['account', 'analysis', 'manualReply']
+          if (!input || typeof input !== 'object' || typeof input.casinoId !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date || '') || textFields.some((field) => typeof (input[field] || '') !== 'string' || (input[field] || '').length > 20000) || !input.counts || Object.values(input.counts).some((value) => typeof value !== 'string' || (value && (!/^\d+$/.test(value) || Number(value) > 100000000)))) return sendJson(response, 400, { error: 'Revisá la fecha, los totales y el análisis antes de guardar.' })
+          if (input.attachment && (typeof input.attachment.url !== 'string' || !input.attachment.url.startsWith(`/api/pay/documento/${input.casinoId}/`) || typeof input.attachment.name !== 'string')) return sendJson(response, 400, { error: 'El documento adjunto no es válido.' })
+          const casinos = JSON.parse(fs.readFileSync(payCasinosFile, 'utf8'))
+          const casino = casinos.find((item) => String(item.id) === input.casinoId && item.status === 'Activo')
+          if (!casino) return sendJson(response, 404, { error: 'No se encontró un casino activo para guardar el reporte.' })
+          const report = { id: randomBytes(16).toString('hex'), title: String(input.title || 'Reporte').slice(0, 200), date: input.date, account: String(input.account || ''), counts: input.counts, analysis: String(input.analysis || ''), manualReply: String(input.manualReply || ''), attachment: input.attachment || null, createdAt: new Date().toISOString(), author: String(actor.displayName || actor.name || actor.username || 'Equipo').slice(0, 120) }
+          casino.reports = Array.isArray(casino.reports) ? casino.reports : []
+          casino.reports.push(report)
+          fs.writeFileSync(payCasinosFile, JSON.stringify(casinos, null, 2))
+          return sendJson(response, 201, { report, casino })
+        } catch { return sendJson(response, 400, { error: 'No se pudo guardar el reporte.' }) }
+      })
+
       server.middlewares.use('/api/pay/casos', async (request, response, next) => {
         if (!['GET', 'POST'].includes(request.method)) return next()
         const actor = currentSessionUser(request)
@@ -556,7 +576,8 @@ function comunicadosApi() {
         if (request.method === 'GET') return sendJson(response, 200, JSON.parse(fs.readFileSync(payCasesFile, 'utf8')))
         try {
           const input = await readRequestBody(request)
-          if (!input || typeof input !== 'object' || !['Depósito', 'Retiro'].includes(input.operation) || typeof input.playerId !== 'string' || !input.playerId.trim() || input.playerId.length > 120 || typeof input.transactionId !== 'string' || !input.transactionId.trim() || input.transactionId.length > 160 || typeof input.externalOrderId !== 'string' || !input.externalOrderId.trim() || input.externalOrderId.length > 160) return sendJson(response, 400, { error: 'Completá casino, método de pago, ID de jugador, ID de transacción, ID de orden externa y tipo de operación.' })
+          const validAmount = Boolean(input && typeof input === 'object' && typeof input.amount === 'number' && Number.isFinite(input.amount) && input.amount > 0 && input.amount <= 100000000000000 && (input.currency === 'PYG' ? Number.isInteger(input.amount) : input.currency === 'ARS' && Math.abs(input.amount * 100 - Math.round(input.amount * 100)) < 1e-7))
+          if (!input || typeof input !== 'object' || !['Depósito', 'Retiro'].includes(input.operation) || !validAmount || typeof input.playerId !== 'string' || !input.playerId.trim() || input.playerId.length > 120 || typeof input.transactionId !== 'string' || !input.transactionId.trim() || input.transactionId.length > 160 || typeof input.externalOrderId !== 'string' || !input.externalOrderId.trim() || input.externalOrderId.length > 160) return sendJson(response, 400, { error: 'Completá casino, método de pago, IDs, monto, moneda válida y tipo de operación.' })
           const casinos = JSON.parse(fs.readFileSync(payCasinosFile, 'utf8'))
           const casino = casinos.find((item) => String(item.id) === String(input.casinoId) && item.status === 'Activo')
           if (!casino) return sendJson(response, 400, { error: 'Elegí un casino activo configurado por administración.' })
@@ -564,7 +585,7 @@ function comunicadosApi() {
           if (!paymentMethod) return sendJson(response, 400, { error: 'Elegí un método de pago habilitado para el casino.' })
           const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
           const agentName = String(actor.displayName || actor.name || actor.username || 'Agente').trim()
-          const record = { id: randomBytes(16).toString('hex'), casinoId: String(casino.id), casino: casino.name, paymentMethod, playerId: input.playerId.trim(), transactionId: input.transactionId.trim(), externalOrderId: input.externalOrderId.trim(), operation: input.operation, createdAt: new Date().toISOString(), agentName, author: agentName }
+          const record = { id: randomBytes(16).toString('hex'), casinoId: String(casino.id), casino: casino.name, paymentMethod, playerId: input.playerId.trim(), transactionId: input.transactionId.trim(), externalOrderId: input.externalOrderId.trim(), amount: input.amount, currency: input.currency, operation: input.operation, createdAt: new Date().toISOString(), agentName, author: agentName }
           cases.push(record)
           fs.writeFileSync(payCasesFile, JSON.stringify(cases, null, 2))
           return sendJson(response, 201, record)
@@ -903,7 +924,7 @@ function comunicadosApi() {
           const currentUsers = readUsers()
           if (!Array.isArray(submittedUsers) || submittedUsers.some((user) =>
             typeof user.username !== 'string' || !['administrador', 'agente'].includes(user.role) ||
-            (user.projects !== undefined && (!Array.isArray(user.projects) || user.projects.some((project) => !['wallet', 'pay'].includes(project))))
+            (user.projects !== undefined && (!Array.isArray(user.projects) || user.projects.some((project) => !['wallet', 'pay'].includes(project)) || (user.role === 'agente' && user.projects.length === 0)))
           )) throw new Error('Formato inválido')
 
           const updatedUsers = submittedUsers.map((user) => {

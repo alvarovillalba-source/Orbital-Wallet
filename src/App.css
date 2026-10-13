@@ -2296,6 +2296,9 @@ main > .faq-section:first-child {
   font-size: 13px;
 }
 
+.admin-users-savebar small { display:block; margin-top:3px; color:#64748b; font-size:12px; }
+.admin-users-savebar strong { color:#172b4d; }
+
 .admin-users-savebar button {
   flex: 0 0 auto;
   padding: 10px 16px;
@@ -2309,6 +2312,7 @@ main > .faq-section:first-child {
 .admin-users-savebar span:not(:empty) {
   overflow-wrap: anywhere;
 }
+.admin-users-savebar > div { min-width:0; }
 
 .access-forms {
   display: grid;
@@ -2413,9 +2417,15 @@ main > .faq-section:first-child {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+  margin: 5px 0 0;
+  padding: 7px 9px;
+  border: 1px solid #dce3e8;
+  border-radius: 8px;
   color: #526170;
   font-size: 12px;
 }
+.admin-user-projects legend { padding:0 4px; color:#64748b; font-size:11px; font-weight:700; }
 
 .admin-user-projects label,
 .create-user-projects label {
@@ -2542,6 +2552,8 @@ main > .faq-section:first-child {
 .admin-password-form .create-user-projects small {
   color: #aeb9c9;
 }
+.admin-password-form .admin-user-projects { border-color:#3a4454; }
+.admin-password-form .admin-user-projects legend { color:#aeb9c9; }
 
 .admin-password-form .admin-form label,
 .admin-password-form .admin-user-row {
@@ -3171,6 +3183,38 @@ footer small {
   border-color: #3a4454;
 }
 
+/* Normal login uses the same dark surface and field treatment as admin login. */
+:root:not([data-theme="light"]) .public-login-section {
+  max-width: 460px;
+  padding: 38px 34px;
+  border-color: #303846;
+  background: #121720;
+  color: #e9edf5;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .2);
+}
+
+:root:not([data-theme="light"]) .public-login-section .section-heading h2 {
+  color: #f1f4f8;
+}
+
+:root:not([data-theme="light"]) .public-login-section .section-heading p {
+  color: #aeb9c9;
+}
+
+:root:not([data-theme="light"]) .public-login-form label {
+  color: #e9edf5;
+}
+
+:root:not([data-theme="light"]) .public-login-form input {
+  border-color: #3a4454;
+  background: #0d1118;
+  color: #f1f4f8;
+}
+
+:root:not([data-theme="light"]) .public-login-error {
+  color: #ff9ba5;
+}
+
 :root:not([data-theme="light"]) .admin-page .admin-form {
   border-color: #303846;
   background: #121720;
@@ -3385,6 +3429,8 @@ footer small {
 :root[data-theme="light"] .admin-password-form .admin-users-savebar span {
   color: #718096;
 }
+:root[data-theme="light"] .admin-password-form .admin-users-savebar small { color:#526170; }
+:root[data-theme="light"] .admin-password-form .admin-users-savebar strong { color:#172b4d; }
 
 :root[data-theme="light"] .admin-menu-tile-link {
   border-color: #edf0f2;
@@ -3419,6 +3465,12 @@ footer small {
 }
 
 :root[data-theme="light"] .admin-password-form .admin-user-row { border-color: #e2e8f0; }
+:root[data-theme="light"] .admin-password-form .admin-user-projects { border-color:#dce3e8; color:#526170; }
+:root[data-theme="light"] .admin-password-form .admin-user-projects legend { color:#64748b; }
+:root[data-theme="light"] .admin-password-form .admin-users-savebar button { color:#fff; }
+:root[data-theme="light"] .module-access-empty { color:#526170; }
+.module-grid:has(> :only-child) { grid-template-columns:minmax(0, min(100%, 560px)); justify-content:center; }
+.module-grid > .module-access-empty { grid-column:1/-1; text-align:center; }
 :root[data-theme="light"] .admin-password-form .admin-user-unlocked { color: #718096; }
 :root[data-theme="light"] .admin-password-form .admin-user-locked { color: #b42332; }
 :root[data-theme="light"] .admin-password-form .admin-projects-full-access { background: #edf7f1; color: #286348; }
@@ -3432,6 +3484,98 @@ footer small {
   background: #fff;
   color: #172b4d;
   box-shadow: 0 8px 22px rgba(0, 0, 0, .08);
+}
+
+/* Cleaner user and access management layout. */
+.admin-password-form .admin-users-list {
+  gap: 0;
+  padding: 22px;
+  border-radius: 14px;
+}
+
+.admin-users-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.admin-users-list-heading h3 { margin: 0; }
+.admin-users-list-heading p { margin: 5px 0 0; color: #aeb9c9; font-size: 13px; }
+.admin-users-count { flex: 0 0 auto; padding: 6px 10px; border: 1px solid #3a4454; border-radius: 999px; color: #cbd5e1; font-size: 12px; font-weight: 700; }
+
+.admin-password-form .admin-users-savebar {
+  top: 8px;
+  margin: 0 0 8px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: rgba(17, 23, 34, .96);
+}
+
+.admin-password-form .admin-users-savebar strong { color: #f1f4f8; font-size: 13px; }
+.admin-password-form .admin-users-savebar small { color: #aeb9c9; }
+.admin-password-form .admin-users-savebar button { min-height: 40px; padding: 9px 16px; border-radius: 9px; }
+
+.admin-password-form .admin-user-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px 20px;
+  padding: 16px 0;
+}
+
+.admin-user-identity { gap: 5px; }
+.admin-user-identity > strong { color: #f1f4f8; font-size: 15px; line-height: 1.35; }
+.admin-user-identity small { color: #aeb9c9; line-height: 1.45; }
+.admin-password-form .admin-user-unlocked { color: #8ed5ad; }
+.admin-password-form .admin-user-locked { color: #ff9ba5; }
+
+.admin-password-form .admin-user-projects {
+  width: fit-content;
+  max-width: 100%;
+  gap: 8px 14px;
+  margin: 4px 0 0;
+  padding: 7px 10px 8px;
+  border-radius: 9px;
+  background: rgba(13, 17, 24, .45);
+}
+
+.admin-user-projects legend { font-size: 10px; letter-spacing: .03em; }
+.admin-user-projects label { font-size: 11px; white-space: nowrap; }
+
+.admin-password-form .admin-user-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 7px;
+  padding-top: 1px;
+}
+
+.admin-password-form .admin-user-row select { min-width: 142px; }
+.admin-password-form .admin-user-actions button { min-height: 38px; padding: 8px 10px; white-space: nowrap; }
+
+:root[data-theme="light"] .admin-users-list-heading p { color: #64748b; }
+:root[data-theme="light"] .admin-users-count { border-color: #d8dfe8; background: #fff; color: #526170; }
+:root[data-theme="light"] .admin-password-form .admin-users-savebar { background: rgba(255, 255, 255, .97); }
+:root[data-theme="light"] .admin-password-form .admin-users-savebar strong { color: #172b4d; }
+:root[data-theme="light"] .admin-password-form .admin-users-savebar small { color: #64748b; }
+:root[data-theme="light"] .admin-user-identity > strong { color: #172b4d; }
+:root[data-theme="light"] .admin-user-identity small { color: #64748b; }
+:root[data-theme="light"] .admin-password-form .admin-user-projects { border-color: #dce3e8; background: #fff; }
+
+@media (max-width: 760px) {
+  .admin-password-form .admin-users-list { padding: 16px; }
+  .admin-password-form .admin-user-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .admin-password-form .admin-user-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .admin-password-form .admin-users-savebar { align-items: flex-start; }
+}
+
+@media (max-width: 520px) {
+  .admin-users-list-heading { align-items: flex-start; }
+  .admin-users-count { font-size: 11px; }
+  .admin-password-form .admin-users-savebar { flex-direction: column; }
+  .admin-password-form .admin-users-savebar button { width: 100%; }
 }
 
 :root[data-theme="light"] .admin-module-card strong,
@@ -3507,6 +3651,7 @@ footer small {
 .portal-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; padding:18px; margin-bottom:20px; border-radius:14px; background:rgba(2,6,23,.4); }
 .portal-form label { display:grid; gap:7px; font-size:.85rem; }
 .portal-form input { min-width:0; padding:11px 12px; border:1px solid rgba(148,163,184,.3); border-radius:9px; background:#0b1422; color:inherit; }
+.portal-form select { min-width:0; padding:11px 12px; border:1px solid rgba(148,163,184,.3); border-radius:9px; background:#0b1422; color:inherit; }
 .portal-actions { display:flex; align-items:end; gap:8px; }
 .portal-actions button,.portal-card-actions button { padding:10px 14px; border:0; border-radius:9px; background:#c8102e; color:white; cursor:pointer; }
 .portal-actions .portal-cancel { background:transparent; border:1px solid rgba(148,163,184,.3); color:#fff; }
@@ -3523,6 +3668,7 @@ footer small {
 :root[data-theme="light"] .portal-directory { border-color:#d8dfe8; background:#fff; }
 :root[data-theme="light"] .portal-form,:root[data-theme="light"] .portal-card { border-color:#d8dfe8; background:#f8fafc; }
 :root[data-theme="light"] .portal-form input { border-color:#cbd5e1; background:#fff; color:#172b4d; }
+:root[data-theme="light"] .portal-form select { border-color:#cbd5e1; background:#fff; color:#172b4d; }
 
 /* Roomier shared layout for signed-in admin and agent workspaces. */
 .app:has(.hero .header-account-menu) > .hero {
@@ -3762,6 +3908,7 @@ footer small {
 :root[data-theme="light"] .portal-form,
 :root[data-theme="light"] .portal-card { border-color: #d8dfe8; background: #f8fafc; }
 :root[data-theme="light"] .portal-form input { border-color: #cbd5e1; background: #fff; color: #172b4d; }
+:root[data-theme="light"] .portal-form select { border-color: #cbd5e1; background: #fff; color: #172b4d; }
 :root[data-theme="light"] .portal-form input::placeholder { color: #718096; }
 :root[data-theme="light"] .portal-card > a { color: #b7192b; }
 :root[data-theme="light"] .portal-card-actions button { border-color: #cbd5e1; color: #172b4d; }
@@ -3869,6 +4016,21 @@ footer small {
 .pay-guide-card-link .pay-guide-icon { grid-row:span 3; }
 .pay-guide-card-actions { border-top:1px solid #2b303b; padding:12px 18px; }
 .pay-guide-card-actions a { color:#ff8798; font-size:13px; font-weight:700; text-decoration:none; }
+.pay-guides-heading { position:relative; padding-right:190px; }
+.pay-guide-create-link { position:absolute; right:0; top:12px; display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border:1px solid #3a4454; border-radius:9px; background:#141a24; color:#f1f4f8; font-size:13px; font-weight:700; text-decoration:none; }
+.pay-guide-create-link:hover { border-color:#ed1b2f; color:#ff9aa7; }
+.pay-guide-metadata-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.5fr); gap:14px; margin-bottom:18px; }
+.pay-guide-metadata-grid label,.pay-guide-import-url label { display:grid; gap:7px; font-weight:700; }
+.pay-guide-metadata-grid select,.pay-guide-metadata-grid textarea,.pay-guide-import-url input,.pay-guide-import-file input { width:100%; min-width:0; border:1px solid #3b4657; border-radius:8px; background:#0c1017; color:#f3f5f9; padding:11px; font:inherit; }
+.pay-guide-metadata-grid textarea { resize:vertical; }
+.pay-guide-import-panel { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:8px 0 22px; padding:18px; border:1px solid #2b3442; border-radius:12px; background:#151a24; }
+.pay-guide-import-panel > div:first-child { grid-column:1 / -1; }
+.pay-guide-import-panel p,.pay-guide-import-file small { display:block; margin:5px 0 0; color:#aebbd0; font-size:13px; line-height:1.5; }
+.pay-guide-import-url { display:grid; align-content:start; gap:10px; }
+.pay-guide-import-url button { justify-self:start; border:1px solid #3a4454; border-radius:9px; background:#141a24; color:#f1f4f8; padding:10px 14px; font:inherit; font-weight:700; cursor:pointer; }
+.pay-guide-import-url button:hover { border-color:#ed1b2f; color:#ff9aa7; }
+.pay-guide-import-file { display:grid; align-content:start; gap:8px; font-weight:700; }
+.pay-guide-import-file input { padding:8px; }
 .pay-guide-page { width:min(1120px,calc(100% - 36px)); margin:36px auto 80px; color:#f3f5f9; }
 .pay-guide-page-nav { display:flex; justify-content:space-between; gap:12px; margin-bottom:22px; }
 .pay-guide-page-nav a,.pay-guide-edit-link { display:inline-flex; align-items:center; border:1px solid #313b4c; border-radius:9px; background:#121722; color:#e9edf5; padding:10px 14px; font-weight:700; text-decoration:none; }
@@ -3958,6 +4120,93 @@ footer small {
 :root[data-theme="light"] .pay-case-config-actions .pay-case-config-cancel,:root[data-theme="light"] .pay-case-options-list .pay-case-option-delete { border-color:#cbd5e1; color:#172b4d; }
 @media(max-width:700px) { .pay-case-config-form { grid-template-columns:1fr; }.pay-case-config-actions { flex-wrap:wrap; }.pay-case-options-list article { align-items:flex-start; flex-wrap:wrap; }.pay-case-options-list article>div { flex-basis:100%; } }
 @media(max-width:700px) { .pay-heading-actions { align-items:stretch; flex-direction:column-reverse; width:100%; }.pay-case-form { grid-template-columns:1fr; }.pay-case-form button,.pay-case-form .pay-notice,.pay-case-empty { grid-column:auto; } }
+
+.casino-report-row { flex-wrap:wrap; }
+.casino-report-panel { flex:1 0 100%; margin:6px 0 4px 58px; }
+.casino-report-toggle { display:flex; justify-content:space-between; width:100%; padding:11px 14px; border:1px solid #354154; border-radius:9px; background:#151b26; color:#f1f5f9; font:inherit; font-weight:700; cursor:pointer; }
+.casino-report-toggle span { color:#aebbd0; font-size:13px; }
+.casino-report-content { margin-top:12px; padding:18px; border:1px solid #2d394a; border-radius:12px; background:#10151e; }
+.casino-report-content h3 { margin:0 0 14px; color:#f3f5f9; }
+.casino-report-form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:24px; }
+.casino-report-form label { display:grid; gap:6px; color:#d5dcea; font-size:13px; font-weight:700; }
+.casino-report-form input,.casino-report-form textarea { min-width:0; width:100%; box-sizing:border-box; padding:10px 11px; border:1px solid #384457; border-radius:8px; background:#0a0e15; color:#f3f5f9; font:inherit; }
+.casino-report-form textarea { resize:vertical; }
+.casino-report-wide,.casino-report-file { grid-column:1/-1; }
+.casino-report-file small { color:#9daabe; font-weight:400; }
+.casino-report-save { justify-self:start; padding:11px 15px; border:0; border-radius:8px; background:#c8102e; color:white; font-weight:700; cursor:pointer; }
+.casino-report-save:disabled { opacity:.65; cursor:wait; }
+.casino-report-history { display:grid; gap:10px; }
+.casino-report-history article { display:grid; gap:8px; padding:14px; border:1px solid #303a49; border-radius:9px; color:#d5dcea; overflow-wrap:anywhere; }
+.casino-report-history article header { display:flex; justify-content:space-between; gap:12px; color:#fff; }
+.casino-report-history article p { margin:0; white-space:pre-wrap; }
+.casino-report-history article a { color:#ff8798; }
+.casino-report-history article > small { color:#9daabe; }
+@media(max-width:700px) { .casino-report-panel { margin-left:0; }.casino-report-form { grid-template-columns:1fr; }.casino-report-wide,.casino-report-file { grid-column:auto; } }
+:root[data-theme="light"] .casino-report-toggle,:root[data-theme="light"] .casino-report-content { border-color:#d3dce8; background:#f8fafc; color:#172b4d; }
+:root[data-theme="light"] .casino-report-content h3,:root[data-theme="light"] .casino-report-history article header { color:#172b4d; }
+:root[data-theme="light"] .casino-report-toggle span,:root[data-theme="light"] .casino-report-form label,:root[data-theme="light"] .casino-report-history article { color:#293c57; }
+:root[data-theme="light"] .casino-report-form input,:root[data-theme="light"] .casino-report-form textarea,:root[data-theme="light"] .casino-report-history article { border-color:#d3dce8; background:#fff; color:#172b4d; }
+:root[data-theme="light"] .casino-report-history article > small,:root[data-theme="light"] .casino-report-file small { color:#526170; }
+
+/* Unified signed-in toolbar and accessible module navigation. */
+.header-account-group { display:flex; align-items:center; gap:8px; }
+.header-user-chip,.header-action-button,.theme-toggle,.logout-button,.admin-switch-button {
+  display:inline-flex; min-height:44px; align-items:center; justify-content:center; gap:9px;
+  padding:9px 13px; border:1px solid rgba(203,213,225,.25); border-radius:11px;
+  background:rgba(12,17,26,.86); color:#f8fafc; font:inherit; font-size:13px; font-weight:650;
+  text-decoration:none; white-space:nowrap;
+}
+.header-account-menu > summary { min-height:46px; border-radius:12px; }
+.header-account-name { max-width:230px; overflow:hidden; text-overflow:ellipsis; }
+.header-account-status { display:flex; align-items:center; gap:9px; padding:9px 11px 11px; color:#b8c3d3; font-size:12px; }
+.header-account-status-dot { width:8px; height:8px; flex:0 0 8px; border-radius:50%; background:#4ade80; box-shadow:0 0 0 3px rgba(74,222,128,.13); }
+.header-user-chip { max-width:300px; overflow:hidden; text-overflow:ellipsis; }
+.header-action-button,.theme-toggle,.logout-button,.admin-switch-button { cursor:pointer; }
+.header-action-button:hover,.theme-toggle:hover,.logout-button:hover,.admin-switch-button:hover { border-color:#fb7185; background:#be123c; color:#fff; }
+.header-user-chip svg,.header-action-button svg,.theme-toggle svg,.logout-button svg,.admin-switch-button svg { width:17px; height:17px; flex:0 0 17px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.admin-switch-button { border-color:rgba(251,113,133,.65); background:#9f1239; }
+.navigation-links .back-link .navigation-link-icon { transition:transform .18s ease; }
+.navigation-links .back-link:hover .navigation-link-icon,.pay-nav .module-switch-link:hover .navigation-link-icon { transform:translateX(-2px); }
+.pay-guide-page-nav .pay-guide-back-link { display:inline-flex; align-items:center; gap:10px; border:1px solid #313b4c; border-radius:11px; background:#121722; color:#e9edf5; padding:8px 14px 8px 8px; font-weight:650; text-decoration:none; }
+.pay-guide-page-nav .pay-guide-back-link:hover { border-color:#fb7185; color:#fff; }
+.pay-guide-back-link .navigation-link-icon { width:32px; height:32px; flex:0 0 32px; }
+:root[data-theme="light"] .header-user-chip,
+:root[data-theme="light"] .header-action-button,
+:root[data-theme="light"] .theme-toggle,
+:root[data-theme="light"] .logout-button,
+:root[data-theme="light"] .admin-switch-button { border-color:#cbd5e1; background:#fff; color:#172b4d; box-shadow:0 3px 10px rgba(15,23,42,.06); }
+:root[data-theme="light"] .header-action-button:hover,
+:root[data-theme="light"] .theme-toggle:hover,
+:root[data-theme="light"] .logout-button:hover,
+:root[data-theme="light"] .admin-switch-button:hover { border-color:#c91021; background:#c91021; color:#fff; }
+:root[data-theme="light"] .admin-switch-button { border-color:#c91021; background:#c91021; color:#fff; }
+:root[data-theme="light"] .header-account-status { color:#526170; }
+:root[data-theme="light"] .pay-guide-page-nav .pay-guide-back-link { border-color:#d8dfe8; background:#fff; color:#172b4d; }
+:root[data-theme="light"] .pay-guide-page-nav .pay-guide-back-link:hover { border-color:#c91021; background:#fff8f9; color:#b90f25; }
+:root[data-theme="light"] .pay-guide-reader,
+:root[data-theme="light"] .pay-guide-editor-page { border-color:#d8dfe8; background:#fff; color:#172b4d; }
+:root[data-theme="light"] .pay-guide-page-heading h1,
+:root[data-theme="light"] .pay-guide-editor-label,
+:root[data-theme="light"] .pay-guide-editor-title { color:#172b4d; }
+:root[data-theme="light"] .pay-guide-reader-content,
+:root[data-theme="light"] .pay-guide-reader-steps { color:#293c57; }
+:root[data-theme="light"] .pay-guide-reader-content th,
+:root[data-theme="light"] .pay-guide-reader-content td { border-color:#d8dfe8; }
+:root[data-theme="light"] .pay-guide-reader-content a { color:#b7192b; }
+:root[data-theme="light"] .pay-heading-actions .pay-total { background:#fff; }
+:root[data-theme="light"] .pay-casino-workspace,
+:root[data-theme="light"] .pay-cases-page,
+:root[data-theme="light"] .pay-guide-page { color:#172b4d; }
+:root[data-theme="light"] .pay-case-type.is-withdrawal { background:#fff1f2; color:#991b1b; }
+@media(max-width:700px) {
+  .app:has(.hero .header-account-menu) .hero-actions { position:relative; inset:auto; justify-content:center; max-width:100%; margin:0 auto 18px; }
+  .header-account-group { flex-wrap:wrap; justify-content:center; }
+  .header-account-menu > summary { min-height:40px; }
+  .header-account-name { max-width:min(210px, calc(100vw - 130px)); }
+  .header-user-chip { max-width:calc(100vw - 32px); }
+  .header-user-chip,.header-action-button,.theme-toggle,.logout-button,.admin-switch-button { min-height:40px; padding:8px 10px; font-size:12px; }
+  .pay-guide-page-nav .pay-guide-back-link { max-width:100%; }
+}
 .pay-layout.pay-agent-layout { grid-template-columns:minmax(0,1fr); }
 .pay-form textarea { width:100%; min-height:42px; padding:10px 12px; border:1px solid #303846; border-radius:8px; outline:none; background:#0d1118; color:#fff; font:inherit; resize:vertical; }
 :root[data-theme="light"] .pay-form textarea { border-color:#cbd5e1; background:#fff; color:#172b4d; }
@@ -3968,7 +4217,299 @@ footer small {
 :root[data-theme="light"] .pay-guide-page-heading p,:root[data-theme="light"] .pay-guide-reader-content,:root[data-theme="light"] .pay-guide-reader-steps { color:#293c57; }
 :root[data-theme="light"] .pay-guide-page-nav a,:root[data-theme="light"] .pay-guide-edit-link { border-color:#cbd5e1; background:#fff; color:#172b4d; }
 :root[data-theme="light"] .pay-guide-editor-title input,:root[data-theme="light"] .pay-guide-editor-surface { border-color:#cbd5e1; background:#f8fafc; color:#172b4d; }
+:root[data-theme="light"] .pay-guide-create-link,:root[data-theme="light"] .pay-guide-import-url button { border-color:#cbd5e1; background:#fff; color:#172b4d; }
+:root[data-theme="light"] .pay-guide-create-link:hover,:root[data-theme="light"] .pay-guide-import-url button:hover { border-color:#c91021; background:#fff8f9; color:#b90f25; }
+:root[data-theme="light"] .pay-guide-metadata-grid select,:root[data-theme="light"] .pay-guide-metadata-grid textarea,:root[data-theme="light"] .pay-guide-import-url input,:root[data-theme="light"] .pay-guide-import-file input { border-color:#cbd5e1; background:#fff; color:#172b4d; }
+:root[data-theme="light"] .pay-guide-import-panel { border-color:#d8dfe8; background:#f8fafc; }
+:root[data-theme="light"] .pay-guide-import-panel p,:root[data-theme="light"] .pay-guide-import-file small { color:#526170; }
 :root[data-theme="light"] .pay-guide-editor-surface .tiptap { color:#172b4d; }
-@media(max-width:700px) { .pay-guide-page { width:calc(100% - 24px); margin:20px auto 54px; }.pay-guide-reader,.pay-guide-editor-page { padding:18px; }.pay-guide-editor-page .pay-guide-page-heading { padding:0; padding-bottom:64px; }.pay-guide-editor-page .pay-guide-page-heading > button { top:auto; right:auto; bottom:0; left:0; }.pay-guide-page-nav { flex-wrap:wrap; } }
+@media(max-width:700px) { .pay-guide-page { width:calc(100% - 24px); margin:20px auto 54px; }.pay-guide-reader,.pay-guide-editor-page { padding:18px; }.pay-guide-editor-page .pay-guide-page-heading { padding:0; padding-bottom:64px; }.pay-guide-editor-page .pay-guide-page-heading > button { top:auto; right:auto; bottom:0; left:0; }.pay-guide-page-nav { flex-wrap:wrap; }.pay-guides-heading { padding-right:0; padding-bottom:58px; }.pay-guide-create-link { top:auto; right:auto; bottom:0; left:0; }.pay-guide-metadata-grid,.pay-guide-import-panel { grid-template-columns:1fr; }.pay-guide-import-panel > div:first-child { grid-column:auto; } }
 :root[data-theme="light"] .admin-page .admin-editor-savebar,
 :root[data-theme="light"] .admin-page .editor-document-preview-content { border-color: #d8dfe8; background: #fff; color: #172b4d; }
+
+/* Orbital Pay casino dashboard actions and report controls. */
+.pay-casino-heading {
+  align-items: center;
+  gap: 26px;
+  padding: 4px 0 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+.pay-casino-heading-copy { min-width: 250px; }
+.pay-casino-heading-copy h1 { margin: 8px 0 7px; }
+.pay-casino-actions { display: grid; grid-template-columns: repeat(3, minmax(145px, 1fr)) auto; align-items: stretch; gap: 10px; }
+.pay-casino-action {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 11px 12px;
+  border: 1px solid #303a49;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #171e29, #121720);
+  color: #eef2f7;
+  text-decoration: none;
+  transition: border-color .18s ease, transform .18s ease, background .18s ease;
+}
+.pay-casino-action:hover { transform: translateY(-2px); border-color: #e34a5c; background: #1b202b; }
+.pay-casino-action.is-primary { border-color: rgba(237, 27, 47, .52); background: linear-gradient(145deg, rgba(91, 23, 37, .7), #171720); }
+.pay-casino-action-icon { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid rgba(255, 102, 117, .24); border-radius: 10px; background: rgba(237, 27, 47, .13); color: #ff8290; }
+.pay-casino-action-icon svg,.pay-casino-action-arrow,.pay-total-icon svg,.pay-panel-title > span svg,.casino-empty > span svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pay-casino-action > span:nth-child(2) { display: grid; min-width: 0; gap: 4px; }
+.pay-casino-action strong { overflow: hidden; color: inherit; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.pay-casino-action small { overflow: hidden; color: #9ca9bb; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.pay-casino-action-arrow { width: 15px; height: 15px; color: #ff8290; transition: transform .18s ease; }
+.pay-casino-action:hover .pay-casino-action-arrow { transform: translateX(2px); }
+.pay-casino-actions .pay-total { display: grid; grid-template-columns: 34px auto; align-content: center; align-items: center; column-gap: 9px; min-width: 145px; padding: 12px; border-color: #303a49; background: rgba(255, 255, 255, .035); }
+.pay-total-icon { display: grid; grid-row: span 2; width: 34px; height: 34px; place-items: center; border-radius: 10px; background: #242b37; color: #ff8290; }
+.pay-casino-actions .pay-total strong { align-self: end; font-size: 23px; line-height: 1; }
+.pay-casino-actions .pay-total > span:last-child { align-self: start; font-size: 8px; letter-spacing: .08em; }
+.pay-panel-title > span svg { width: 19px; height: 19px; }
+
+/* Registros de agentes: acciones agrupadas y con el mismo estilo sobrio del panel. */
+.pay-records-heading { align-items: center; gap: 24px; padding-bottom: 22px; }
+.pay-records-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.pay-records-actions .pay-record-action {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 13px;
+  border: 1px solid #3a4454;
+  border-radius: 9px;
+  background: #141a24;
+  color: #f1f4f8;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .18s ease, color .18s ease, background .18s ease, transform .18s ease;
+}
+.pay-records-actions .pay-record-action:hover { border-color: #ed1b2f; background: #191e29; color: #ff8995; transform: translateY(-1px); }
+.pay-records-actions .pay-record-action:focus-visible { outline: 2px solid #ff5364; outline-offset: 2px; }
+.pay-records-actions .pay-record-action:disabled { opacity: .62; cursor: wait; transform: none; }
+.pay-record-action svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pay-record-action .pay-record-action-arrow { width: 14px; height: 14px; margin-left: 1px; }
+.pay-admin-cases-summary { display: grid; grid-template-columns: minmax(220px, .85fr) minmax(0, 1.8fr) auto; align-items: center; gap: 22px; margin: 0 0 24px; }
+.pay-admin-pay-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+.pay-admin-cases-summary h2 { margin: 5px 0; font-size: 19px; }
+.pay-admin-cases-summary p { margin: 0; color: #aebbd0; font-size: 12px; }
+.pay-admin-cases-metrics { display: grid; grid-template-columns: repeat(3, minmax(115px, 1fr)); gap: 10px; }
+.pay-admin-cases-metrics article { display: grid; min-height: 68px; align-content: center; gap: 7px; padding: 11px 13px; border: 1px solid #303a49; border-radius: 10px; background: rgba(255,255,255,.025); }
+.pay-admin-cases-metrics small { color: #8994a5; font-size: 9px; font-weight: 700; letter-spacing: .09em; }
+.pay-admin-cases-metrics strong { color: #f2f4f8; font-size: 17px; }
+:root[data-theme="light"] .pay-records-actions .pay-record-action { border-color: #cbd5e1; background: #fff; color: #172b4d; }
+:root[data-theme="light"] .pay-records-actions .pay-record-action:hover { border-color: #ed1b2f; background: #fff; color: #b90f25; }
+:root[data-theme="light"] .pay-admin-cases-summary p { color: #64748b; }
+:root[data-theme="light"] .pay-admin-cases-metrics article { border-color: #d8e0e9; background: #fff; }
+:root[data-theme="light"] .pay-admin-cases-metrics small { color: #64748b; }
+:root[data-theme="light"] .pay-admin-cases-metrics strong { color: #172b4d; }
+@media (max-width: 900px) {
+  .pay-admin-cases-summary { grid-template-columns: 1fr; }
+  .pay-admin-cases-summary > .pay-case-admin-link { justify-self: start; }
+  .pay-admin-pay-links { justify-content: flex-start; }
+  .pay-records-heading { align-items: flex-start; flex-direction: column; }
+  .pay-records-actions { justify-content: flex-start; }
+}
+@media (max-width: 560px) {
+  .pay-records-actions { display: grid; width: 100%; grid-template-columns: 1fr; }
+  .pay-records-actions .pay-record-action { width: 100%; justify-content: flex-start; }
+}
+.casino-report-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 15px 2px 17px; }
+.casino-report-row .casino-info { grid-column: 2; grid-row: 1; }
+.casino-report-row .casino-status { grid-column: 3; grid-row: 1; }
+.casino-report-row .casino-report-panel { grid-column: 2 / -1; width: 100%; min-width: 0; margin: 0; }
+.casino-report-toggle { min-height: 46px; padding: 7px 12px; border-color: #303a49; background: #171e29; transition: border-color .18s ease, background .18s ease; }
+.casino-report-toggle:hover { border-color: #505e72; background: #1b2330; }
+.casino-report-toggle-main,.casino-report-count { display: inline-flex; align-items: center; gap: 9px; }
+.casino-report-toggle-main { color: #edf2f8; }
+.casino-report-toggle-icon { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 8px; background: rgba(237, 27, 47, .14); color: #ff8290; }
+.casino-report-toggle-icon svg,.casino-report-count svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.casino-report-count { color: #aebbd0; font-size: 11px !important; }
+.casino-report-count svg { color: #ff8290; transition: transform .18s ease; }
+.casino-report-content { border-color: #303a49; background: #10151e; }
+.portal-card-icon { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid rgba(255, 102, 117, .2); border-radius: 10px; background: rgba(237, 27, 47, .1); }
+.portal-card-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.portal-card > a { align-items: center; gap: 7px; }
+.portal-card > a svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.casino-empty > span svg { width: 30px; height: 30px; color: #697689; }
+:root[data-theme="light"] .pay-casino-heading { border-color: #e2e8f0; }
+:root[data-theme="light"] .pay-casino-action { border-color: #d8dfe8; background: linear-gradient(145deg, #fff, #f7f9fc); color: #172b4d; box-shadow: 0 5px 14px rgba(15, 23, 42, .05); }
+:root[data-theme="light"] .pay-casino-action:hover { border-color: #ed1b2f; background: #fff; }
+:root[data-theme="light"] .pay-casino-action.is-primary { border-color: #f0bdc4; background: linear-gradient(145deg, #fff4f5, #fff); }
+:root[data-theme="light"] .pay-casino-action small { color: #64748b; }
+:root[data-theme="light"] .pay-casino-actions .pay-total { border-color: #d8dfe8; background: #fff; }
+:root[data-theme="light"] .pay-total-icon { background: #fff0f2; color: #c91021; }
+:root[data-theme="light"] .casino-report-toggle { border-color: #d8dfe8; background: #fff; }
+:root[data-theme="light"] .casino-report-toggle:hover { background: #f8fafc; }
+:root[data-theme="light"] .casino-report-toggle-main { color: #172b4d; }
+:root[data-theme="light"] .casino-report-count { color: #526170; }
+:root[data-theme="light"] .casino-report-content { border-color: #d8dfe8; background: #f8fafc; }
+:root[data-theme="light"] .portal-card-icon { border-color: #f0c5cb; background: #fff0f2; }
+@media (max-width: 1100px) {
+  .pay-casino-heading { align-items: stretch; flex-direction: column; }
+  .pay-casino-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pay-casino-actions .pay-total { min-width: 0; }
+}
+@media (max-width: 700px) {
+  .pay-casino-actions { grid-template-columns: 1fr; width: 100%; }
+  .pay-casino-actions .pay-total { grid-template-columns: 34px auto; width: 100%; }
+  .casino-report-row { grid-template-columns: 38px minmax(0, 1fr); align-items: start; gap: 10px; }
+  .casino-report-row .casino-avatar { grid-column: 1; grid-row: 1 / span 2; }
+  .casino-report-row .casino-info { grid-column: 2; grid-row: 1; }
+  .casino-report-row .casino-status { grid-column: 2; grid-row: 2; justify-self: start; }
+  .casino-report-row .casino-report-panel { grid-column: 1 / -1; }
+}
+
+/* Navegación y accesos de Orbital Pay comparten el estilo del botón volver. */
+.pay-nav .module-switch-link,
+.pay-case-admin-link,
+.pay-casino-action {
+  border: 1px solid #3a4454;
+  border-radius: 10px;
+  background: #141a24;
+  color: #f1f4f8;
+  box-shadow: none;
+  transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease;
+}
+.pay-nav .module-switch-link:hover,
+.pay-case-admin-link:hover,
+.pay-casino-action:hover {
+  border-color: rgba(255, 102, 117, .7);
+  background: #191e29;
+  color: #ff9aa7;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .18);
+}
+.pay-case-admin-link:focus-visible,
+.pay-casino-action:focus-visible,
+.pay-nav .module-switch-link:focus-visible { outline: 2px solid #ff5364; outline-offset: 2px; }
+.pay-casino-action.is-primary { border-color: #3a4454; background: #141a24; }
+:root[data-theme="light"] .pay-nav .module-switch-link,
+:root[data-theme="light"] .pay-case-admin-link,
+:root[data-theme="light"] .pay-casino-action {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #172b4d;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, .06);
+}
+:root[data-theme="light"] .pay-nav .module-switch-link:hover,
+:root[data-theme="light"] .pay-case-admin-link:hover,
+:root[data-theme="light"] .pay-casino-action:hover {
+  border-color: #ed1b2f;
+  background: #fff8f9;
+  color: #b90f25;
+}
+:root[data-theme="light"] .pay-casino-action.is-primary { border-color: #cbd5e1; background: #fff; }
+.pay-record-filters { grid-template-columns: repeat(5, minmax(120px, 1fr)) auto auto; }
+@media (max-width: 1100px) { .pay-record-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .pay-record-filters { grid-template-columns: 1fr; } }
+
+/* Skin común para controles y enlaces de acción en todos los módulos y roles. */
+.app :is(
+  button,
+  a.back-link,
+  a.header-option-link,
+  a.module-switch-link,
+  a.module-card,
+  a.admin-menu-tile,
+  a.category-link,
+  a.communication-action,
+  a.pay-case-admin-link,
+  a.pay-casino-action,
+  a.pay-guide-back-link,
+  a.pay-guide-edit-link,
+  a.pay-guide-attachment,
+  a.pay-guide-card-link,
+  a.portal-card > a,
+  a.editor-document-open,
+  a.document-preview-return
+) {
+  border-color: #3a4454;
+  border-radius: 9px;
+  background: #141a24;
+  color: #f1f4f8;
+  box-shadow: none;
+  transition: border-color .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.app :is(
+  button,
+  a.back-link,
+  a.header-option-link,
+  a.module-switch-link,
+  a.module-card,
+  a.admin-menu-tile,
+  a.category-link,
+  a.communication-action,
+  a.pay-case-admin-link,
+  a.pay-casino-action,
+  a.pay-guide-back-link,
+  a.pay-guide-edit-link,
+  a.pay-guide-attachment,
+  a.pay-guide-card-link,
+  a.portal-card > a,
+  a.editor-document-open,
+  a.document-preview-return
+):hover:not(:disabled) {
+  border-color: #ed5364;
+  background: #191e29;
+  color: #ff9aa7;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .16);
+}
+.app :is(button, a.back-link, a.header-option-link, a.module-switch-link, a.module-card, a.admin-menu-tile, a.category-link, a.communication-action, a.pay-case-admin-link, a.pay-casino-action, a.pay-guide-back-link, a.pay-guide-edit-link, a.pay-guide-attachment, a.pay-guide-card-link, .portal-card > a, a.editor-document-open, a.document-preview-return):focus-visible {
+  outline: 2px solid #ff5364;
+  outline-offset: 2px;
+}
+.app button:disabled { opacity: .58; cursor: not-allowed; }
+:root[data-theme="light"] .app :is(
+  button,
+  a.back-link,
+  a.header-option-link,
+  a.module-switch-link,
+  a.module-card,
+  a.admin-menu-tile,
+  a.category-link,
+  a.communication-action,
+  a.pay-case-admin-link,
+  a.pay-casino-action,
+  a.pay-guide-back-link,
+  a.pay-guide-edit-link,
+  a.pay-guide-attachment,
+  a.pay-guide-card-link,
+  a.portal-card > a,
+  a.editor-document-open,
+  a.document-preview-return
+) {
+  border-color: #cbd5e1;
+  background: #fff;
+  color: #172b4d;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, .06);
+}
+:root[data-theme="light"] .app :is(
+  button,
+  a.back-link,
+  a.header-option-link,
+  a.module-switch-link,
+  a.module-card,
+  a.admin-menu-tile,
+  a.category-link,
+  a.communication-action,
+  a.pay-case-admin-link,
+  a.pay-casino-action,
+  a.pay-guide-back-link,
+  a.pay-guide-edit-link,
+  a.pay-guide-attachment,
+  a.pay-guide-card-link,
+  a.portal-card > a,
+  a.editor-document-open,
+  a.document-preview-return
+):hover:not(:disabled) {
+  border-color: #ed5364;
+  background: #fff8f9;
+  color: #b90f25;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, .09);
+}

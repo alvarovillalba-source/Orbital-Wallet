@@ -11,5 +11,20 @@
     "createdAt": "2026-10-13T00:21:19.108Z",
     "agentName": "Prueba",
     "author": "Prueba"
+  },
+  {
+    "id": "861e8591c2f1e533a00b9f26800e8084",
+    "casinoId": "1791338131787",
+    "casino": "Axar Latino Argentina (Azar 777)",
+    "paymentMethod": "HG CASH",
+    "playerId": "00000000000000",
+    "transactionId": "0000000000000000",
+    "externalOrderId": "0000000000000000000000000",
+    "amount": 50000,
+    "currency": "ARS",
+    "operation": "Retiro",
+    "createdAt": "2026-10-13T20:58:10.215Z",
+    "agentName": "Rocio Espinola",
+    "author": "Rocio Espinola"
   }
 ]

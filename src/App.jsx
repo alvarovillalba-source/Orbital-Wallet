@@ -4,6 +4,11 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import DOMPurify from "dompurify";
 import { documentoAHtml } from "./documentContent";
 import CommunicationEditor from "./CommunicationEditor";
+import PayGuidePage from "./PayGuidePage";
+import PayOptionsPage from "./PayOptionsPage";
+import PayCaseRecordsPage from "./PayCaseRecordsPage";
+import PayCasesPage from "./PayCasesPage";
+import { useSharedPolling } from "./useSharedPolling";
 
 const AdminDocumentEditorPage = lazy(() => import("./DocumentRichEditor.jsx"));
 
@@ -16,11 +21,67 @@ const ADMIN_SESSION_ROLE_KEY = "orbital-wallet-admin-session-role";
 const ADMIN_MUST_CHANGE_PASSWORD_KEY = "orbital-wallet-admin-must-change-password";
 const ADMIN_ACTIVITY_KEY = "orbital-wallet-admin-activity";
 const THEME_KEY = "orbital-wallet-theme";
-const CASINOS_KEY = "orbital-pay-casinos";
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
 const DEFAULT_ADMIN_USERNAME = "admin";
 const ADMIN_ROLE = "administrador";
 const AGENT_ROLE = "agente";
+
+function PortalDirectory({ project, manage = false }) {
+  const [portals, setPortals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedProject, setSelectedProject] = useState(project || "wallet");
+
+  const refreshPortals = async () => {
+    const response = await fetch("/api/portales", { cache: "no-cache" });
+    if (!response.ok) throw new Error("No se pudieron cargar los portales.");
+    const items = await response.json();
+    setPortals(Array.isArray(items) ? items : []);
+    setError("");
+    setLoading(false);
+  };
+  useEffect(() => { refreshPortals().catch((cause) => { setError(cause.message || "No se pudieron cargar los portales."); setLoading(false); }); }, []);
+  useSharedPolling(() => refreshPortals().catch((cause) => setError(cause.message || "No se pudieron actualizar los portales.")), !saving);
+
+  const visiblePortals = portals.filter((portal) => manage || portal.project === project);
+  const resetForm = () => { setEditingId(""); setName(""); setUrl(""); setDescription(""); setSelectedProject(project || "wallet"); };
+  const savePortals = async (next) => {
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/portales", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "No se pudieron guardar los portales.");
+      setPortals(next);
+      resetForm();
+    } catch (cause) { setError(cause.message || "No se pudieron guardar los portales."); }
+    finally { setSaving(false); }
+  };
+  const submit = (event) => {
+    event.preventDefault();
+    const portal = { id: editingId || crypto.randomUUID(), project: manage ? selectedProject : project, name: name.trim(), url: url.trim(), description: description.trim() };
+    savePortals(editingId ? portals.map((item) => item.id === editingId ? portal : item) : [...portals, portal]);
+  };
+  const beginEdit = (portal) => { setEditingId(portal.id); setName(portal.name); setUrl(portal.url); setDescription(portal.description || ""); setSelectedProject(portal.project); };
+
+  return <section className={`portal-directory${manage ? " portal-management" : ""}`}>
+    <header><div><span className="pay-kicker">{manage ? "ACCESOS DEL EQUIPO" : project === "pay" ? "ORBITAL PAY" : "ORBITAL WALLET"}</span><h2>{manage ? "Gestión de portales" : "Portales de acceso"}</h2><p>{manage ? "Agregá y actualizá los enlaces disponibles para cada módulo." : "Enlaces útiles para acceder a las plataformas de trabajo."}</p></div><span className="portal-count">{visiblePortals.length} portales</span></header>
+    {manage && <form className="portal-form" onSubmit={submit}>
+      <label>Nombre del portal<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ej. BackOffice" maxLength="120" required /></label>
+      <label>Enlace<input type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." maxLength="2000" required /></label>
+      <label>Descripción<input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Opcional" maxLength="300" /></label>
+      <label>Módulo<select value={selectedProject} onChange={(event) => setSelectedProject(event.target.value)}><option value="wallet">Orbital Wallet</option><option value="pay">Orbital Pay</option></select></label>
+      <div className="portal-actions"><button type="submit" disabled={saving}>{saving ? "Guardando…" : editingId ? "Guardar cambios" : "Agregar portal"}</button>{editingId && <button className="portal-cancel" type="button" onClick={resetForm}>Cancelar</button>}</div>
+    </form>}
+    {error && <p className="portal-message" role="alert">{error}</p>}
+    {loading ? <p className="portal-empty">Cargando portales…</p> : visiblePortals.length ? <div className="portal-grid">{visiblePortals.map((portal) => <article className="portal-card" key={portal.id}><span className="portal-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9" /><path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" /></svg></span>{manage && <small>{portal.project === "pay" ? "ORBITAL PAY" : "ORBITAL WALLET"}</small>}<h3>{portal.name}</h3>{portal.description && <p>{portal.description}</p>}<a href={portal.url} target="_blank" rel="noopener noreferrer">Abrir portal <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9" /></svg></a>{manage && <div className="portal-card-actions"><button type="button" onClick={() => beginEdit(portal)}>Editar</button><button type="button" onClick={() => savePortals(portals.filter((item) => item.id !== portal.id))}>Eliminar</button></div>}</article>)}</div> : <p className="portal-empty">{manage ? "Todavía no hay portales. Agregá el primero desde este formulario." : "Todavía no hay portales disponibles para este módulo."}</p>}
+  </section>;
+}
 
 function leerConsultas() {
   try {
@@ -69,12 +130,14 @@ function leerComunicados() {
 }
 
 function guardarComunicados(comunicados) {
-  localStorage.setItem(COMUNICADOS_KEY, JSON.stringify(comunicados));
   return fetch("/api/comunicados", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(comunicados),
-  }).catch(() => null);
+  }).then(async (response) => {
+    if (!response.ok) throw new Error("No se pudieron guardar los comunicados compartidos.");
+    localStorage.setItem(COMUNICADOS_KEY, JSON.stringify(comunicados));
+  });
 }
 
 function leerUsuarioAdmin() {
@@ -108,7 +171,7 @@ function usuariosSinCredenciales(usuarios) {
 }
 
 async function obtenerUsuariosAdmin() {
-  const response = await fetch("/api/usuarios");
+  const response = await fetch("/api/usuarios", { cache: "no-cache" });
   if (!response.ok) {
     throw new Error("No se pudieron cargar los usuarios compartidos.");
   }
@@ -135,8 +198,6 @@ function guardarUsuariosAdmin(usuarios) {
     const result = await response.json();
     localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(result.users || usuariosSinCredenciales(usuarios)));
     return result.users || usuariosSinCredenciales(usuarios);
-  }).catch(() => {
-    window.alert("No se pudieron guardar los usuarios en el servidor compartido.");
   });
 }
 
@@ -183,6 +244,11 @@ function leerRolSesionAdmin() {
   }
 
   return leerUsuariosAdmin().find((usuario) => usuario.username === sesion)?.role || AGENT_ROLE;
+}
+
+function proyectosUsuario(username = leerSesionAdmin()) {
+  const user = leerUsuariosAdmin().find((item) => item.username === username);
+  return Array.isArray(user?.projects) ? user.projects : ["wallet", "pay"];
 }
 
 function guardarSesion(usuario) {
@@ -335,7 +401,10 @@ const documentosPorCategoria = {
 function Header({ content, username = "" }) {
   const activeUsername = username || leerSesionAdmin();
   const isAdministrator = Boolean(activeUsername) && leerRolSesionAdmin() === ADMIN_ROLE;
-  const isAdminRoute = window.location.pathname.startsWith("/admin");
+  const currentPath = window.location.pathname;
+  const isAdminMode = currentPath === "/admin" || currentPath.startsWith("/admin/");
+  const isModuleSelector = currentPath === "/modulos" || currentPath === "/admin";
+  const moduleHref = isAdminMode ? "/admin" : "/modulos";
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark");
 
   useEffect(() => {
@@ -354,6 +423,32 @@ function Header({ content, username = "" }) {
           localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
           localStorage.removeItem(ADMIN_ACTIVITY_KEY);
           window.location.replace("/");
+          return;
+        }
+        if (response.ok && !cancelled) {
+          const { user } = await response.json();
+          if (!user?.username) return;
+          const cachedSessionUser = { ...user };
+          delete cachedSessionUser.sessionToken;
+          const cachedUser = leerUsuariosAdmin().find((item) => item.username === user.username);
+          const oldProjects = JSON.stringify([...(cachedUser?.projects || ["wallet", "pay"])].sort());
+          const newProjects = JSON.stringify([...(user.projects || ["wallet", "pay"])].sort());
+          const roleChanged = cachedUser?.role !== user.role;
+          const projectsChanged = oldProjects !== newProjects;
+          const users = leerUsuariosAdmin().filter((item) => item.username !== user.username);
+          localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify([...users, cachedSessionUser]));
+          localStorage.setItem(ADMIN_SESSION_ROLE_KEY, user.role);
+          if (roleChanged || projectsChanged) {
+            const requiresPay = window.location.pathname.startsWith("/orbital-pay");
+            const requiredProject = requiresPay ? "pay" : "wallet";
+            if (user.role !== ADMIN_ROLE && !user.projects?.includes(requiredProject) && window.location.pathname !== "/modulos") {
+              window.location.replace("/modulos");
+            } else if (window.location.pathname === "/modulos" || window.location.pathname === "/admin") {
+              window.location.reload();
+            } else if (roleChanged) {
+              window.location.reload();
+            }
+          }
         }
       } catch {
         // A temporary network error does not end the local session.
@@ -367,42 +462,42 @@ function Header({ content, username = "" }) {
     };
   }, [activeUsername]);
 
+  const cerrarSesion = async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
+    localStorage.removeItem(ADMIN_ACTIVITY_KEY);
+    window.location.href = "/";
+  };
+
+  const themeControl = <button
+    className="header-option-link"
+    type="button"
+    onClick={() => setTheme((currentTheme) => currentTheme === "dark" ? "light" : "dark")}
+  >
+    <span className="header-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24">{theme === "dark" ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></> : <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z" />}</svg></span>
+    {theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
+  </button>;
+
   return (
     <header className="hero">
-      {activeUsername && (
-        <span className="admin-current-user">Usuario: {activeUsername}</span>
-      )}
       <div className="hero-actions">
-        {isAdministrator && (
-          <a className="admin-switch-button" href={isAdminRoute ? "/" : "/admin"}>
-            {isAdminRoute ? "Ir a Inicio" : "Ir a Administrador"}
-          </a>
-        )}
-        <button
-          className="theme-toggle"
-          type="button"
-          title={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-          aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"}
-          onClick={() => setTheme((currentTheme) => currentTheme === "dark" ? "light" : "dark")}
-        >
-          <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+        {activeUsername && <details className="header-options header-account-menu">
+          <summary><span className="header-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" /></svg></span><span className="header-account-name">{activeUsername}</span><svg className="header-options-chevron" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg></summary>
+          <div className="header-options-menu">
+            <div className="header-account-status"><span className="header-account-status-dot" />{isAdministrator ? "Cuenta administradora" : "Cuenta de agente"}</div>
+            {isAdministrator && currentPath !== "/admin" && <a className="header-option-link" href="/admin"><span className="header-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V8l8-5 8 5v12h-6v-7h-4v7z" /></svg></span><span>Panel de administración</span></a>}
+            {isAdministrator && isAdminMode && <a className="header-option-link" href="/modulos"><span className="header-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" /><path d="M19 5v4m-2-2h4" /></svg></span><span>Pasar a modo agente</span></a>}
+            {isAdministrator && <a className="header-option-link" href="/admin/password"><span className="header-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3" /><path d="M3.5 20c.4-3.2 2.3-5 5.5-5 2 0 3.5.7 4.5 2M16 11h5m-2.5-2.5v5" /></svg></span><span>Usuarios y acceso</span></a>}
+            {!isModuleSelector && <a className="header-option-link" href={moduleHref}><span className="header-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg></span><span>Cambiar módulo</span></a>}
+            {themeControl}
+            <button className="header-option-link" type="button" onClick={cerrarSesion}><span className="header-option-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5m5 5H3m10-9h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" /></svg></span><span>Cerrar sesión</span></button>
+          </div>
+        </details>}
+        {!activeUsername && <button className="theme-toggle" type="button" title={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"} aria-label={theme === "dark" ? "Activar modo claro" : "Activar modo oscuro"} onClick={() => setTheme((currentTheme) => currentTheme === "dark" ? "light" : "dark")}>
+          <svg aria-hidden="true" viewBox="0 0 24 24">{theme === "dark" ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" /></> : <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z" />}</svg>
           {theme === "dark" ? "Modo claro" : "Modo oscuro"}
-        </button>
-        {activeUsername && (
-          <button
-            className="logout-button"
-            type="button"
-            onClick={async () => {
-              await fetch("/api/auth/logout", { method: "POST" }).catch(() => null);
-              localStorage.removeItem(ADMIN_SESSION_KEY);
-              localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
-              localStorage.removeItem(ADMIN_ACTIVITY_KEY);
-              window.location.href = "/";
-            }}
-          >
-            ↪ Cerrar sesión
-          </button>
-        )}
+        </button>}
       </div>
       <div className="hero-content">
         <img src={content.logoUrl || logo} alt="Orbital Wallet" className="logo-image" />
@@ -427,8 +522,8 @@ function NavigationLinks({ admin = false, backHref }) {
   const destination = backHref || (admin ? "/admin" : "/");
   return (
     <div className="navigation-links">
-      <a className="back-link" href={destination}>← Volver atrás</a>
-      <a className="back-link" href={admin ? "/admin" : "/"}>⌂ Volver al inicio</a>
+      <a className="back-link" href={destination}><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6 6m-6-6 6-6" /></svg></span><span>Volver atrás</span></a>
+      <a className="back-link" href={admin ? "/admin" : "/"}><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg></span><span>Volver al inicio</span></a>
     </div>
   );
 }
@@ -651,34 +746,113 @@ function PublicLoginSection({ redirectTo = "/admin" }) {
   );
 }
 
-function ModulePicker({ content }) {
+function ModulePicker({ content, isAdmin = false }) {
+  const projects = isAdmin ? ["wallet", "pay"] : proyectosUsuario();
+  const walletHref = isAdmin ? "/admin/wallet" : "/";
+  const payHref = isAdmin ? "/admin/pay" : "/orbital-pay";
   return <div className="app" style={getBrandStyles(content)}>
     <Header content={content} />
     <main className="module-picker">
-      <div className="section-heading"><span className="pay-kicker">PLATAFORMA ORBITAL</span><h1>¿A qué módulo querés ingresar?</h1><p>Elegí el espacio de trabajo que necesitás usar.</p></div>
+      <div className="section-heading"><span className="pay-kicker">{isAdmin ? "CENTRO DE ADMINISTRACIÓN" : "PLATAFORMA ORBITAL"}</span><h1>{isAdmin ? "Elegí un módulo" : "¿A qué módulo querés ingresar?"}</h1><p>{isAdmin ? "Seleccioná el espacio que querés administrar." : "Elegí el espacio de trabajo que necesitás usar."}</p></div>
       <div className="module-grid">
-        <a className="module-card wallet-module" href="/"><span className="module-symbol">◉</span><span className="module-tag">ATENCIÓN Y OPERACIONES</span><h2>Orbital Wallet</h2><p>Manuales, procedimientos y comunicados del equipo.</p><span className="module-cta">Ingresar a Wallet <b>→</b></span></a>
-        <a className="module-card pay-module" href="/orbital-pay"><span className="module-symbol">₱</span><span className="module-tag">GESTIÓN DE CASINOS</span><h2>Orbital Pay</h2><p>Administrá casinos, contactos y el estado de cada operación.</p><span className="module-cta">Ingresar a Pay <b>→</b></span></a>
+        {projects.includes("wallet") && <a className="module-card wallet-module" href={walletHref}><span className="module-symbol">◉</span><span className="module-tag">{isAdmin ? "CONTENIDO Y ACCESOS" : "ATENCIÓN Y OPERACIONES"}</span><h2>Orbital Wallet</h2><p>{isAdmin ? "Administrá comunicados, usuarios, documentación y portales de Wallet." : "Manuales, procedimientos y comunicados del equipo."}</p><span className="module-cta">{isAdmin ? "Administrar Wallet" : "Ingresar a Wallet"} <b>→</b></span></a>}
+        {projects.includes("pay") && <a className="module-card pay-module" href={payHref}><span className="module-symbol">₱</span><span className="module-tag">{isAdmin ? "CASINOS Y OPERACIONES" : "GESTIÓN DE CASINOS"}</span><h2>Orbital Pay</h2><p>{isAdmin ? "Configurá casinos y métodos de pago para los procesos de Pay." : "Administrá casinos, contactos y el estado de cada operación."}</p><span className="module-cta">{isAdmin ? "Administrar Pay" : "Ingresar a Pay"} <b>→</b></span></a>}
+        {!projects.length && <p className="module-access-empty">Tu cuenta no tiene módulos habilitados. Contactá a un administrador.</p>}
       </div>
     </main>
   </div>;
 }
 
+function AdminModulePicker({ content }) {
+  return <ModulePicker content={{ ...content, headerSubtitle: "Administración · Plataforma Orbital" }} isAdmin />;
+}
+
+function PayGuidesSection({ isAdmin }) {
+  const [guides, setGuides] = useState([]);
+  const [error, setError] = useState("");
+  const refreshGuides = async () => {
+    const response = await fetch("/api/pay/guias", { cache: "no-cache" });
+    if (!response.ok) throw new Error("No se pudieron cargar las guías de Orbital Pay.");
+    const data = await response.json();
+    setGuides(Array.isArray(data) ? data : []);
+    setError("");
+  };
+  useEffect(() => { refreshGuides().catch((cause) => setError(cause.message)); }, []);
+  useSharedPolling(() => refreshGuides().catch((cause) => setError(cause.message)), true, 15000);
+  const guidePath = isAdmin ? "/admin/pay/guia" : "/orbital-pay/guia";
+  return <section className="pay-guides" id="documentacion">
+    <div className="pay-guides-heading"><span className="pay-kicker">DOCUMENTACIÓN Y PROCESOS</span><h2>Guías de Orbital Pay</h2><p>Consultá los procesos y materiales de referencia del equipo.</p>{isAdmin && <a className="pay-guide-create-link" href="/admin/pay/guia/nueva"><span aria-hidden="true">＋</span> Crear guía</a>}</div>
+    {error ? <p role="alert">{error}</p> : guides.length ? <div className="pay-guide-grid">{guides.map((guide) => <article className="pay-guide-card" key={guide.id}><a className="pay-guide-card-link" href={`${guidePath}/${encodeURIComponent(guide.id)}`}><span className="pay-guide-icon">📘</span><strong>{guide.title}</strong><small>{guide.description || "Abrir documentación y proceso"}</small><span className="pay-guide-open">Abrir guía →</span></a>{isAdmin && <div className="pay-guide-card-actions"><a href={`${guidePath}/${encodeURIComponent(guide.id)}/editar`}>Editar documento ↗</a></div>}</article>)}</div> : <p>Todavía no hay guías publicadas.</p>}
+  </section>;
+}
+
+function CasinoReportsPanel({ casino, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [account, setAccount] = useState("");
+  const [movements, setMovements] = useState("");
+  const [approved, setApproved] = useState("");
+  const [noWithdrawal, setNoWithdrawal] = useState("");
+  const [notApproved, setNotApproved] = useState("");
+  const [ambiguous, setAmbiguous] = useState("");
+  const [analysis, setAnalysis] = useState("");
+  const [manualReply, setManualReply] = useState("");
+  const [file, setFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const reports = casino.reports || [];
+  const submit = async (event) => {
+    event.preventDefault(); setSaving(true); setError("");
+    try {
+      let attachment = null;
+      if (file) {
+        const upload = await fetch("/api/pay/documento", { method: "POST", headers: { "X-Casino-Id": String(casino.id), "X-File-Name": encodeURIComponent(file.name) }, body: file });
+        const result = await upload.json();
+        if (!upload.ok) throw new Error(result.error || "No se pudo importar el documento.");
+        attachment = result;
+      }
+      const response = await fetch("/api/pay/reportes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ casinoId: String(casino.id), title: file?.name || `Reporte ${date}`, date, account, counts: { movements, approved, noWithdrawal, notApproved, ambiguous }, analysis, manualReply, attachment }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudo guardar el análisis.");
+      onSaved(result.casino);
+      setDate(new Date().toISOString().slice(0, 10)); setAccount(""); setMovements(""); setApproved(""); setNoWithdrawal(""); setNotApproved(""); setAmbiguous(""); setAnalysis(""); setManualReply(""); setFile(null);
+      event.target.reset();
+    } catch (cause) { setError(cause.message || "No se pudo guardar el reporte."); }
+    finally { setSaving(false); }
+  };
+  return <div className="casino-report-panel"><button className="casino-report-toggle" type="button" onClick={() => setOpen((current) => !current)}><span className="casino-report-toggle-main"><span className="casino-report-toggle-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M8 15v-4m4 4V7m4 8v-6" /></svg></span><span>{open ? "Cerrar panel" : "Abrir panel interno"}</span></span><span className="casino-report-count">{reports.length} {reports.length === 1 ? "registro" : "registros"}<svg aria-hidden="true" viewBox="0 0 24 24"><path d={open ? "m6 15 6-6 6 6" : "m6 9 6 6 6-6"} /></svg></span></button>{open && <div className="casino-report-content"><h3>Reportes y análisis · {casino.name}</h3><form className="casino-report-form" onSubmit={submit}>
+    <label>Fecha<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label><label>Cuenta<input value={account} onChange={(event) => setAccount(event.target.value)} placeholder="Cuenta o referencia" /></label>
+    <label>Movimientos<input type="number" min="0" value={movements} onChange={(event) => setMovements(event.target.value)} /></label><label>Aprobados<input type="number" min="0" value={approved} onChange={(event) => setApproved(event.target.value)} /></label><label>Sin retiro<input type="number" min="0" value={noWithdrawal} onChange={(event) => setNoWithdrawal(event.target.value)} /></label><label>No aprobados<input type="number" min="0" value={notApproved} onChange={(event) => setNotApproved(event.target.value)} /></label><label>Ambiguos<input type="number" min="0" value={ambiguous} onChange={(event) => setAmbiguous(event.target.value)} /></label>
+    <label className="casino-report-file">Importar documento<input type="file" accept=".xlsx,.xls,.csv,.pdf,.doc,.docx" onChange={(event) => setFile(event.target.files?.[0] || null)} /><small>Hasta 25 MB · XLSX, XLS, CSV, PDF, DOC o DOCX</small></label>
+    <label className="casino-report-wide">Análisis manual<textarea rows="4" value={analysis} onChange={(event) => setAnalysis(event.target.value)} placeholder="Análisis realizado por el equipo" /></label><label className="casino-report-wide">Respuesta del equipo<textarea rows="3" value={manualReply} onChange={(event) => setManualReply(event.target.value)} placeholder="Respuesta registrada" /></label>
+    {error && <p className="portal-message" role="alert">{error}</p>}<button className="casino-report-save" type="submit" disabled={saving}>{saving ? "Guardando…" : "Guardar registro"}</button>
+  </form><h3>Historial</h3>{reports.length ? <div className="casino-report-history">{[...reports].reverse().map((report) => <article key={report.id}><header><strong>{report.title || `Reporte ${report.date}`}</strong><time>{report.date}</time></header><p>Cuenta: {report.account || "—"} · Movimientos: {report.counts?.movements || "—"} · Aprobados: {report.counts?.approved || "—"} · Sin retiro: {report.counts?.noWithdrawal || "—"} · No aprobados: {report.counts?.notApproved || "—"} · Ambiguos: {report.counts?.ambiguous || "—"}</p>{report.analysis && <p><strong>Análisis:</strong> {report.analysis}</p>}{report.manualReply && <p><strong>Respuesta:</strong> {report.manualReply}</p>}{report.attachment && <a href={report.attachment.url} target="_blank" rel="noreferrer">Descargar {report.attachment.name}</a>}<small>Registrado por {report.author || "equipo"} · {report.createdAt ? new Date(report.createdAt).toLocaleString("es-PY") : ""}</small></article>)}</div> : <p>Aún no hay reportes para este casino.</p>}</div>}</div>;
+}
+
 function OrbitalPayPage({ content }) {
-  const [casinos, setCasinos] = useState(() => {
-    try { const saved = JSON.parse(localStorage.getItem(CASINOS_KEY)); return Array.isArray(saved) ? saved : []; } catch { return []; }
-  });
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
-  const [status, setStatus] = useState("Activo");
-  const save = (items) => { setCasinos(items); localStorage.setItem(CASINOS_KEY, JSON.stringify(items)); };
-  const addCasino = (event) => { event.preventDefault(); save([...casinos, { id: Date.now(), name: name.trim(), contact: contact.trim(), status }]); setName(""); setContact(""); };
+  const [casinos, setCasinos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const isAdmin = window.location.pathname === "/admin" || window.location.pathname.startsWith("/admin/");
+  const refreshCasinos = async () => {
+    const response = await fetch("/api/pay/casinos", { cache: "no-cache" });
+    if (!response.ok) throw new Error("No se pudieron cargar los casinos de Orbital Pay.");
+    const items = await response.json();
+    setCasinos(Array.isArray(items) ? items : []);
+    setError("");
+    setLoading(false);
+  };
+  useEffect(() => { refreshCasinos().catch((cause) => { setError(cause.message); setLoading(false); }); }, []);
+  useSharedPolling(() => refreshCasinos().catch((cause) => setError(cause.message)), true, 12000);
+  const updateCasino = (updated) => setCasinos((items) => items.map((item) => String(item.id) === String(updated.id) ? updated : item));
   return <div className="app pay-app"><Header content={{ ...content, headerSubtitle: "Gestión de casinos · Orbital Pay" }} />
     <main className="pay-dashboard">
-      <nav className="pay-nav"><a href="/modulos">← Cambiar módulo</a><span>ORBITAL PAY / CASINOS</span></nav>
-      <div className="pay-heading"><div><span className="pay-kicker">CENTRO DE OPERACIONES</span><h1>Gestión de casinos</h1><p>Administrá los establecimientos vinculados a Orbital Pay.</p></div><div className="pay-total"><strong>{String(casinos.length).padStart(2, "0")}</strong><span>CASINOS REGISTRADOS</span></div></div>
-      <div className="pay-layout"><section className="pay-panel pay-form-panel"><div className="pay-panel-title"><span>＋</span><div><small>NUEVO REGISTRO</small><h2>Agregar casino</h2></div></div><form className="pay-form" onSubmit={addCasino}><label>Nombre del casino<input value={name} onChange={e => setName(e.target.value)} placeholder="Ej. Casino Central" required /></label><label>Contacto responsable<input value={contact} onChange={e => setContact(e.target.value)} placeholder="Nombre o correo" /></label><label>Estado<select value={status} onChange={e => setStatus(e.target.value)}><option>Activo</option><option>En revisión</option><option>Inactivo</option></select></label><button type="submit">Guardar casino <span>→</span></button></form></section>
-      <section className="pay-panel pay-list-panel"><div className="pay-panel-title"><span>▤</span><div><small>DIRECTORIO</small><h2>Casinos registrados</h2></div></div>{casinos.length ? <div className="casino-list">{casinos.map(casino => <article className="casino-row" key={casino.id}><div className="casino-avatar">{casino.name.slice(0,1).toUpperCase()}</div><div className="casino-info"><strong>{casino.name}</strong><small>{casino.contact || "Sin contacto asignado"}</small></div><span className={`casino-status ${casino.status === "Activo" ? "is-active" : ""}`}>{casino.status}</span><button type="button" className="casino-delete" aria-label={`Eliminar ${casino.name}`} onClick={() => save(casinos.filter(item => item.id !== casino.id))}>×</button></article>)}</div> : <div className="casino-empty"><span>▤</span><strong>Aún no hay casinos</strong><p>Los nuevos registros aparecerán en este directorio.</p></div>}</section></div>
+      <nav className="pay-nav"><a className="module-switch-link" href={isAdmin ? "/admin/pay" : "/modulos"}><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6 6m-6-6 6-6" /></svg></span><span>{isAdmin ? "Volver a administración de Pay" : "Volver al selector de módulos"}</span></a><span>ORBITAL PAY / CASINOS</span></nav>
+      <PortalDirectory project="pay" />
+      <div className="pay-heading pay-casino-heading"><div className="pay-casino-heading-copy"><span className="pay-kicker">CENTRO DE OPERACIONES</span><h1>Gestión de casinos</h1><p>Consultá los establecimientos y sus reportes internos.</p></div><div className="pay-casino-actions">{isAdmin && <a className="pay-casino-action is-secondary" href="/admin/pay"><span className="pay-casino-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" /><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z" /></svg></span><span><strong>Administrar</strong><small>Casinos y métodos</small></span><svg className="pay-casino-action-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>}<a className="pay-casino-action is-primary" href={isAdmin ? "/admin/pay/casos" : "/orbital-pay/casos"}><span className="pay-casino-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /><rect x="3" y="3" width="18" height="18" rx="5" /></svg></span><span><strong>Registrar caso</strong><small>Nuevo depósito o retiro</small></span><svg className="pay-casino-action-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><a className="pay-casino-action" href={isAdmin ? "/admin/pay/registros" : "/orbital-pay/registros"}><span className="pay-casino-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r=".8" /><circle cx="4" cy="12" r=".8" /><circle cx="4" cy="18" r=".8" /></svg></span><span><strong>Ver registros</strong><small>Consultar actividad</small></span><svg className="pay-casino-action-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><div className="pay-total"><span className="pay-total-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 10h.01M15 10h.01M9 14h.01M15 14h.01M10 21v-3h4v3" /></svg></span><strong>{String(casinos.length).padStart(2, "0")}</strong><span>CASINOS REGISTRADOS</span></div></div></div>
+      {error && <p className="pay-notice" role="alert">{error}</p>}
+      <section className="pay-panel pay-list-panel"><div className="pay-panel-title"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8M8 17h5" /></svg></span><div><small>DIRECTORIO</small><h2>Casinos registrados</h2></div></div>{loading ? <p>Cargando casinos…</p> : casinos.filter((casino) => casino.status === "Activo").length ? <div className="casino-list">{casinos.filter((casino) => casino.status === "Activo").map((casino) => <article className="casino-row casino-report-row" key={casino.id}><div className="casino-avatar">{casino.name.slice(0,1).toUpperCase()}</div><div className="casino-info"><strong>{casino.name}</strong><small>{casino.contact || "Sin contacto asignado"}</small></div><span className="casino-status is-active">{casino.status}</span><CasinoReportsPanel casino={casino} onSaved={updateCasino} /></article>)}</div> : <div className="casino-empty"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8M8 17h5" /></svg></span><strong>Aún no hay casinos activos</strong><p>Los casinos activos aparecerán aquí.</p></div>}</section>
+      <PayGuidesSection isAdmin={isAdmin} />
     </main>
   </div>;
 }
@@ -756,10 +930,17 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
   const [newPassword, setNewPassword] = useState("");
   const [resetUsername, setResetUsername] = useState("");
   const [temporaryPassword, setTemporaryPassword] = useState("");
+  const [savingPasswordReset, setSavingPasswordReset] = useState(false);
+  const [passwordResetMessage, setPasswordResetMessage] = useState("");
+  const [passwordResetSaved, setPasswordResetSaved] = useState(false);
   const [generatedUsername, setGeneratedUsername] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [generatedRole, setGeneratedRole] = useState(AGENT_ROLE);
   const [adminUsers, setAdminUsers] = useState(() => leerUsuariosAdmin());
+  const [generatedProjects, setGeneratedProjects] = useState(["wallet", "pay"]);
+  const [savingUserChanges, setSavingUserChanges] = useState(false);
+  const [userChangesPending, setUserChangesPending] = useState(false);
+  const [userChangesMessage, setUserChangesMessage] = useState("");
   const [authError, setAuthError] = useState("");
   const [message, setMessage] = useState("");
   const [communicationEditorKey, setCommunicationEditorKey] = useState(0);
@@ -769,6 +950,10 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
   useEffect(() => {
     if (authenticated) obtenerUsuariosAdmin().then(setAdminUsers).catch(() => null);
   }, [authenticated]);
+  useSharedPolling(() => {
+    if (authenticated && !userChangesPending && !savingUserChanges && !temporaryPassword && !savingPasswordReset) return obtenerUsuariosAdmin().then(setAdminUsers);
+    return undefined;
+  }, authenticated && !userChangesPending && !savingUserChanges && !temporaryPassword && !savingPasswordReset, 15000);
 
   const authenticate = async (event) => {
     event.preventDefault();
@@ -794,9 +979,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
         setAuthError("Este usuario no tiene acceso al panel de administración.");
         return;
       }
-      setAuthenticated(true);
-      setSessionUsername(usuario.username);
-      setAuthError("");
+      window.location.assign("/admin");
     } catch {
       setAuthError("No se pudo conectar con el servidor de acceso.");
     }
@@ -823,12 +1006,16 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     window.alert("Contraseña actualizada correctamente.");
   };
 
-  const createUser = (event) => {
+  const createUser = async (event) => {
     event.preventDefault();
     const nombre = generatedUsername.trim();
     const clave = generatedPassword.trim();
     if (nombre.length < 3 || clave.length < 8) {
       window.alert("El usuario debe tener al menos 3 caracteres y la contraseña 8.");
+      return;
+    }
+    if (generatedRole === AGENT_ROLE && generatedProjects.length === 0) {
+      window.alert("Seleccioná al menos un módulo para el agente.");
       return;
     }
 
@@ -838,62 +1025,114 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
       return;
     }
 
-    const usuariosActualizados = [...usuarios, { username: nombre, password: clave, role: generatedRole, mustChangePassword: true }];
-    guardarUsuariosAdmin(usuariosActualizados);
-    setAdminUsers(usuariosSinCredenciales(usuariosActualizados));
-    setGeneratedUsername("");
-    setGeneratedPassword("");
-    setGeneratedRole(AGENT_ROLE);
-    window.alert(`Usuario creado: ${nombre}\nContraseña: ${clave}`);
+    const usuariosActualizados = [...usuarios, { username: nombre, password: clave, role: generatedRole, projects: generatedRole === AGENT_ROLE ? generatedProjects : ["wallet", "pay"], mustChangePassword: true }];
+    try {
+      const savedUsers = await guardarUsuariosAdmin(usuariosActualizados);
+      setAdminUsers(savedUsers);
+      setGeneratedUsername("");
+      setGeneratedPassword("");
+      setGeneratedRole(AGENT_ROLE);
+      setGeneratedProjects(["wallet", "pay"]);
+      window.alert(`Usuario creado: ${nombre}\nContraseña: ${clave}`);
+    } catch {
+      window.alert("No se pudieron guardar los usuarios en el servidor compartido.");
+    }
   };
 
   const fillGeneratedPassword = () => setGeneratedPassword(generarPassword());
 
   const updateUserRole = (usernameToUpdate, role) => {
-    const usuarios = leerUsuariosAdmin();
-    if (role === AGENT_ROLE && usuarios.filter((usuario) => usuario.role === ADMIN_ROLE).length <= 1) {
+    if (role === AGENT_ROLE && adminUsers.filter((usuario) => usuario.role === ADMIN_ROLE).length <= 1) {
       window.alert("Debe existir al menos un administrador.");
       return;
     }
 
-    const usuariosActualizados = usuarios.map((usuario) => usuario.username === usernameToUpdate
-      ? { ...usuario, role }
-      : usuario);
-    guardarUsuariosAdmin(usuariosActualizados);
-    setAdminUsers(usuariosActualizados);
+    setAdminUsers((current) => current.map((usuario) => usuario.username === usernameToUpdate
+      ? { ...usuario, role, projects: role === AGENT_ROLE ? (usuario.projects?.length ? usuario.projects : ["wallet", "pay"]) : ["wallet", "pay"] }
+      : usuario));
+    setUserChangesPending(true);
+    setUserChangesMessage("");
+  };
 
-    if (usernameToUpdate === sessionUsername && role === AGENT_ROLE) {
-      localStorage.removeItem(ADMIN_SESSION_KEY);
-      localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
-      localStorage.removeItem(ADMIN_ACTIVITY_KEY);
-      window.location.assign("/");
+  const updateUserProjects = (usernameToUpdate, project, checked) => {
+    setAdminUsers((current) => current.map((usuario) => {
+      if (usuario.username !== usernameToUpdate) return usuario;
+      const projects = new Set(usuario.projects || ["wallet", "pay"]);
+      if (checked) projects.add(project); else projects.delete(project);
+      return { ...usuario, projects: [...projects] };
+    }));
+    setUserChangesPending(true);
+    setUserChangesMessage("");
+  };
+
+  const saveUserChanges = async () => {
+    if (adminUsers.some((usuario) => usuario.role === AGENT_ROLE && (!usuario.projects || usuario.projects.length === 0))) {
+      setUserChangesMessage("Cada agente debe tener al menos un módulo habilitado.");
+      return;
+    }
+    if (!adminUsers.some((usuario) => usuario.role === ADMIN_ROLE)) {
+      setUserChangesMessage("Debe quedar al menos un administrador.");
+      return;
+    }
+    setSavingUserChanges(true);
+    setUserChangesMessage("");
+    try {
+      const response = await fetch("/api/usuarios", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(adminUsers) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "No se pudieron guardar los cambios.");
+      const savedUsers = result.users || adminUsers;
+      setAdminUsers(savedUsers);
+      localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(savedUsers));
+      setUserChangesPending(false);
+      setUserChangesMessage("Cambios de usuarios guardados.");
+      if (savedUsers.find((user) => user.username === sessionUsername)?.role !== ADMIN_ROLE) {
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+        localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
+        localStorage.removeItem(ADMIN_ACTIVITY_KEY);
+        window.location.assign("/");
+      }
+    } catch (error) {
+      setUserChangesMessage(error.message || "No se pudieron guardar los cambios.");
+    } finally {
+      setSavingUserChanges(false);
     }
   };
 
-  const resetRegisteredUserPassword = async (event) => {
+  const generateTemporaryPassword = (event) => {
     event.preventDefault();
     const usernameToReset = resetUsername || adminUsers[0]?.username;
     if (!usernameToReset) return;
-    const password = generarPassword();
+    setResetUsername(usernameToReset);
+    setTemporaryPassword(generarPassword());
+    setPasswordResetSaved(false);
+    setPasswordResetMessage("Contraseña generada. Guardá los cambios para aplicarla.");
+  };
+
+  const saveTemporaryPassword = async () => {
+    if (!resetUsername || !temporaryPassword) return;
+    setSavingPasswordReset(true);
+    setPasswordResetMessage("");
     try {
       const response = await fetch("/api/admin/users/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: usernameToReset, password }),
+        body: JSON.stringify({ username: resetUsername, password: temporaryPassword }),
       });
       const result = await response.json();
-      if (!response.ok) {
-        window.alert(result.error || "No se pudo restablecer la contraseña.");
-        return;
-      }
-      setResetUsername(usernameToReset);
-      setAdminUsers((current) => current.map((user) => user.username === usernameToReset ? result.user : user));
-      setTemporaryPassword(password);
-      if (usernameToReset === sessionUsername) {
+      if (!response.ok) throw new Error(result.error || "No se pudo restablecer la contraseña.");
+      const updatedUser = { ...result.user, mustChangePassword: true };
+      setAdminUsers((current) => current.map((user) => user.username === resetUsername ? { ...user, ...updatedUser } : user));
+      const localUsers = leerUsuariosAdmin().map((user) => user.username === resetUsername ? { ...user, ...updatedUser } : user);
+      localStorage.setItem(ADMIN_USERS_KEY, JSON.stringify(normalizarUsuariosAdmin(localUsers)));
+      if (resetUsername === sessionUsername) {
         localStorage.setItem(ADMIN_MUST_CHANGE_PASSWORD_KEY, "true");
       }
-    } catch {
-      window.alert("No se pudo conectar con el servidor para restablecer la contraseña.");
+      setPasswordResetSaved(true);
+      setPasswordResetMessage("Contraseña restablecida y guardada en el servidor y en este equipo.");
+    } catch (error) {
+      setPasswordResetMessage(error.message || "No se pudo guardar la contraseña en el servidor.");
+    } finally {
+      setSavingPasswordReset(false);
     }
   };
 
@@ -935,7 +1174,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
   };
 
   const deleteRegisteredUser = (usernameToDelete) => {
-    const usuarios = leerUsuariosAdmin();
+    const usuarios = adminUsers;
     const usuario = usuarios.find((item) => item.username === usernameToDelete);
     if (!usuario || !window.confirm(`¿Eliminar el usuario ${usernameToDelete}?`)) {
       return;
@@ -946,17 +1185,9 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
       return;
     }
 
-    guardarUsuariosAdmin(usuarios.filter((item) => item.username !== usernameToDelete));
     setAdminUsers((currentUsers) => currentUsers.filter((item) => item.username !== usernameToDelete));
-    if (usernameToDelete === sessionUsername) {
-      localStorage.removeItem(ADMIN_SESSION_KEY);
-      localStorage.removeItem(ADMIN_SESSION_ROLE_KEY);
-      localStorage.removeItem(ADMIN_ACTIVITY_KEY);
-      window.location.assign("/");
-      return;
-    }
-
-    window.alert(`Usuario ${usernameToDelete} eliminado correctamente.`);
+    setUserChangesPending(true);
+    setUserChangesMessage(`La eliminación de ${usernameToDelete} está pendiente de guardar.`);
   };
 
   const publish = (event) => {
@@ -987,10 +1218,14 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     onSave(comunicados.filter((_, comunicadoIndex) => comunicadoIndex !== index));
   };
 
-  const saveContent = (event) => {
+  const saveContent = async (event) => {
     event.preventDefault();
-    onSaveContent(combinarConfiguracion(contentDraft));
-    window.alert("Contenido actualizado correctamente.");
+    try {
+      await onSaveContent(combinarConfiguracion(contentDraft));
+      window.alert("Contenido actualizado correctamente para todos.");
+    } catch (error) {
+      window.alert(error.message || "No se pudo guardar el contenido compartido.");
+    }
   };
 
   const updateContentField = (field, value) => {
@@ -1012,7 +1247,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
 
       const importedContent = combinarConfiguracion(result.config);
       setContentDraft(importedContent);
-      onSaveContent(importedContent);
+      await onSaveContent(importedContent);
       const failedDocuments = result.failed.map(({ title, reason }) => `${title}: ${reason}`).join("\n");
       window.alert(`Documentos importados: ${result.imported.length}.${failedDocuments ? `\n\nPendientes:\n${failedDocuments}` : ""}`);
     } catch (error) {
@@ -1177,6 +1412,13 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 <small>Modificar textos, enlaces y categorías</small>
                 <span className="admin-menu-tile-link">Abrir editor <b>↗</b></span>
               </a>
+              <a className="admin-menu-tile" href="/admin/portales">
+                <span className="admin-menu-tile-icon">↗</span>
+                <span className="admin-menu-tile-index">04</span>
+                <strong>Gestión de portales</strong>
+                <small>Administrar enlaces de Wallet y Pay</small>
+                <span className="admin-menu-tile-link">Gestionar portales <b>↗</b></span>
+              </a>
             </div>
           </section>
         ) : null}
@@ -1192,6 +1434,8 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
             <button type="submit">Publicar comunicado</button>
           </form>
         </section>}
+
+        {adminSection === "portales" && <PortalDirectory manage />}
 
         {adminSection === "historial" && <section className="admin-history admin-form">
           <h2>Historial local</h2>
@@ -1210,21 +1454,23 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
           <h2>Usuarios y acceso</h2>
           <p>Usuario activo: <strong>{sessionUsername}</strong></p>
           <div className="access-forms">
-            <form onSubmit={resetRegisteredUserPassword}>
+            <form onSubmit={generateTemporaryPassword}>
               <h3>Restablecer contraseña de un usuario</h3>
               <label>
                 Elegir usuario
-                <select value={resetUsername || adminUsers[0]?.username || ""} onChange={(event) => { setResetUsername(event.target.value); setTemporaryPassword(""); }} required>
+                <select value={resetUsername || adminUsers[0]?.username || ""} onChange={(event) => { setResetUsername(event.target.value); setTemporaryPassword(""); setPasswordResetSaved(false); setPasswordResetMessage(""); }} required>
                   {adminUsers.map((usuario) => <option key={usuario.username} value={usuario.username}>{usuario.username}</option>)}
                 </select>
               </label>
               <p>Genera una contraseña temporal aleatoria y la exige al próximo inicio de sesión.</p>
               <button type="submit" disabled={!adminUsers.length}>Generar contraseña temporal</button>
               {temporaryPassword && <label className="temporary-password-result">
-                Contraseña temporal (copiala ahora)
+                Contraseña temporal
                 <input type="text" value={temporaryPassword} readOnly onFocus={(event) => event.target.select()} />
               </label>}
-              {temporaryPassword && resetUsername === sessionUsername && <button className="secondary-admin-button" type="button" onClick={() => window.location.assign("/cambiar-password")}>Continuar para cambiarla</button>}
+              {passwordResetMessage && <p className="portal-message" role="status">{passwordResetMessage}</p>}
+              <button type="button" onClick={saveTemporaryPassword} disabled={!temporaryPassword || savingPasswordReset}>{savingPasswordReset ? "Guardando…" : "Guardar cambios"}</button>
+              {passwordResetSaved && resetUsername === sessionUsername && <button className="secondary-admin-button" type="button" onClick={() => window.location.assign("/cambiar-password")}>Continuar para cambiarla</button>}
             </form>
             <form onSubmit={changePassword}>
               <h3>Cambiar contraseña</h3>
@@ -1236,7 +1482,14 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
             </form>
           </div>
           <div className="admin-users-list">
-            <h3>Usuarios registrados</h3>
+            <div className="admin-users-list-heading">
+              <div><h3>Usuarios registrados</h3><p>Administrá roles, accesos y estado de cada cuenta.</p></div>
+              <span className="admin-users-count">{adminUsers.length} {adminUsers.length === 1 ? "usuario" : "usuarios"}</span>
+            </div>
+            <div className="admin-users-savebar">
+              <div><strong>Guardar cambios</strong><small>{userChangesMessage || (userChangesPending ? "Hay cambios pendientes de guardar." : "Los cambios de roles y permisos se guardan en conjunto.")}</small></div>
+              <button type="button" onClick={saveUserChanges} disabled={!userChangesPending || savingUserChanges}>{savingUserChanges ? "Guardando…" : "Guardar cambios"}</button>
+            </div>
             {adminUsers.map((usuario) => (
               <div className="admin-user-row" key={usuario.username}>
                 <div className="admin-user-identity">
@@ -1244,6 +1497,11 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                   <small className={usuario.locked ? "admin-user-locked" : "admin-user-unlocked"}>
                     {usuario.blockedByAdmin ? "Bloqueado manualmente por administración" : usuario.role === ADMIN_ROLE ? "Acceso activo · sin bloqueo por intentos fallidos" : usuario.locked ? "Bloqueado por intentos fallidos" : `Acceso activo · ${usuario.failedAttempts || 0}/3 intentos fallidos`}
                   </small>
+                  {usuario.role === AGENT_ROLE && <fieldset className="admin-user-projects">
+                    <legend>Módulos habilitados</legend>
+                    <label><input type="checkbox" checked={(usuario.projects || ["wallet", "pay"]).includes("wallet")} onChange={(event) => updateUserProjects(usuario.username, "wallet", event.target.checked)} /> Orbital Wallet</label>
+                    <label><input type="checkbox" checked={(usuario.projects || ["wallet", "pay"]).includes("pay")} onChange={(event) => updateUserProjects(usuario.username, "pay", event.target.checked)} /> Orbital Pay</label>
+                  </fieldset>}
                 </div>
                 <div className="admin-user-actions">
                   <select className="admin-role-select" value={usuario.role} onChange={(event) => updateUserRole(usuario.username, event.target.value)} aria-label={`Rol de ${usuario.username}`}>
@@ -1276,6 +1534,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 </select>
               </label>
             </div>
+            {generatedRole === AGENT_ROLE && <fieldset className="create-user-projects"><legend>Módulos habilitados para el agente</legend><label><input type="checkbox" checked={generatedProjects.includes("wallet")} onChange={(event) => setGeneratedProjects((current) => event.target.checked ? [...new Set([...current, "wallet"])] : current.filter((project) => project !== "wallet"))} /> Orbital Wallet</label><label><input type="checkbox" checked={generatedProjects.includes("pay")} onChange={(event) => setGeneratedProjects((current) => event.target.checked ? [...new Set([...current, "pay"])] : current.filter((project) => project !== "pay"))} /> Orbital Pay</label></fieldset>}
             <div className="access-actions">
               <button className="secondary-admin-button" type="button" onClick={fillGeneratedPassword}>Generar contraseña</button>
               <button type="submit">Crear usuario</button>
@@ -1482,6 +1741,16 @@ function App() {
   )).join("|") + `:${content.faqContent?.length || 0}`;
   const usuarioSesion = leerSesionAdmin();
   const cambioPasswordPendiente = localStorage.getItem(ADMIN_MUST_CHANGE_PASSWORD_KEY) === "true";
+  const refreshComunicados = async () => {
+    const response = await fetch("/api/comunicados", { cache: "no-cache" });
+    if (!response.ok) throw new Error("No se pudieron actualizar los comunicados.");
+    const items = await response.json();
+    if (Array.isArray(items)) {
+      setComunicados(items);
+      localStorage.setItem(COMUNICADOS_KEY, JSON.stringify(items));
+    }
+  };
+  useSharedPolling(() => refreshComunicados().catch(() => null));
 
   useEffect(() => {
     let configEtag = "";
@@ -1513,13 +1782,7 @@ function App() {
     }, 10000);
     window.addEventListener("focus", loadConfig);
 
-    fetch("/api/comunicados")
-      .then((response) => response.json())
-      .then((comunicadosDelServidor) => {
-        setComunicados(comunicadosDelServidor);
-        localStorage.setItem(COMUNICADOS_KEY, JSON.stringify(comunicadosDelServidor));
-      })
-      .catch(() => null);
+    refreshComunicados().catch(() => null);
 
     return () => {
       disposed = true;
@@ -1552,18 +1815,24 @@ function App() {
     setConsultas(registrarConsulta(titulo));
   };
 
-  const guardarYActualizarComunicados = (nuevosComunicados) => {
-    guardarComunicados(nuevosComunicados);
-    setComunicados(nuevosComunicados);
+  const guardarYActualizarComunicados = async (nuevosComunicados) => {
+    try {
+      await guardarComunicados(nuevosComunicados);
+      setComunicados(nuevosComunicados);
+    } catch (error) {
+      window.alert(error.message || "No se pudieron guardar los comunicados compartidos.");
+    }
   };
 
-  const guardarYActualizarContenido = (nuevoContenido) => {
-    setContent(nuevoContenido);
-    fetch("/api/config", {
+  const guardarYActualizarContenido = async (nuevoContenido) => {
+    const response = await fetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(nuevoContenido),
-    }).catch(() => null);
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "No se pudo guardar la configuración compartida.");
+    setContent(nuevoContenido);
   };
 
   if (ruta === "cambiar-password") {
@@ -1611,17 +1880,59 @@ function App() {
   }
 
   if (ruta === "admin") {
-    if (leerSesionAdmin() && leerRolSesionAdmin() !== ADMIN_ROLE) {
-      return <AdminAccessRedirect />;
-    }
+    if (!leerSesionAdmin()) return <AdminPage key={adminContentRevision} adminSection="" comunicados={comunicados} content={content} onSave={guardarYActualizarComunicados} onSaveContent={guardarYActualizarContenido} />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <AdminModulePicker content={content} />;
+  }
+
+  if (ruta === "admin/wallet") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
     return <AdminPage key={adminContentRevision} adminSection="" comunicados={comunicados} content={content} onSave={guardarYActualizarComunicados} onSaveContent={guardarYActualizarContenido} />;
   }
 
-  if (["nuevo", "historial", "password", "contenido"].includes(adminSection)) {
+  if (["nuevo", "historial", "password", "contenido", "portales"].includes(adminSection)) {
     if (leerSesionAdmin() && leerRolSesionAdmin() !== ADMIN_ROLE) {
       return <AdminAccessRedirect />;
     }
     return <AdminPage key={adminContentRevision} adminSection={adminSection} comunicados={comunicados} content={content} onSave={guardarYActualizarComunicados} onSaveContent={guardarYActualizarContenido} />;
+  }
+
+  if (ruta === "admin/pay/registros") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin />;
+  }
+
+  if (ruta === "admin/pay/casos") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <PayCasesPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin />;
+  }
+
+  if (ruta === "admin/pay/reportes") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <OrbitalPayPage content={content} />;
+  }
+
+  if (ruta === "admin/pay/guia/nueva") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <PayGuidePage guideId="" edit create isAdmin content={content} getBrandStyles={getBrandStyles} Header={Header} />;
+  }
+
+  if (ruta.startsWith("admin/pay/guia/")) {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    const [, , , guideId, action] = ruta.split("/");
+    return <PayGuidePage guideId={decodeURIComponent(guideId || "")} edit={action === "editar"} isAdmin content={content} getBrandStyles={getBrandStyles} Header={Header} />;
+  }
+
+  if (ruta === "admin/pay") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <PayOptionsPage content={content} getBrandStyles={getBrandStyles} Header={Header} />;
   }
 
   if (!leerSesionAdmin()) {
@@ -1635,8 +1946,22 @@ function App() {
     );
   }
 
+  if (leerRolSesionAdmin() !== ADMIN_ROLE && ruta !== "modulos") {
+    const allowedProjects = proyectosUsuario();
+    const isPayRoute = ruta === "orbital-pay" || ruta.startsWith("orbital-pay/");
+    if (isPayRoute && !allowedProjects.includes("pay")) return <AdminAccessRedirect target="/modulos" />;
+    if (!isPayRoute && !allowedProjects.includes("wallet")) return <AdminAccessRedirect target="/modulos" />;
+  }
+
   if (ruta === "modulos") return <ModulePicker content={content} />;
   if (ruta === "orbital-pay") return <OrbitalPayPage content={content} />;
+  if (ruta === "orbital-pay/casos") return <PayCasesPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin={false} />;
+  if (ruta === "orbital-pay/registros") return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin={false} />;
+  if (ruta.startsWith("orbital-pay/guia/")) {
+    const [, , guideId, action] = ruta.split("/");
+    if (action === "editar") return <AdminAccessRedirect target="/orbital-pay" />;
+    return <PayGuidePage guideId={decodeURIComponent(guideId || "")} edit={false} isAdmin={false} content={content} getBrandStyles={getBrandStyles} Header={Header} />;
+  }
 
   if (ruta === "documentos/preguntas-frecuentes") {
     return <DocumentPage document={{ icon: "❓", title: content.faqLinkTitle, content: content.faqContent, url: content.faqUrl }} category={{ title: content.faqTitle }} content={content} />;
@@ -1679,6 +2004,8 @@ function App() {
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} />
       <main>
+        <nav className="pay-nav wallet-module-nav"><a className="module-switch-link" href="/modulos"><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6 6m-6-6 6-6" /></svg></span><span>Volver al selector de módulos</span></a><span>ORBITAL WALLET / PORTALES</span></nav>
+        <PortalDirectory project="wallet" />
         <section className="frequent faq-section">
           <div className="section-heading">
             <h2>{content.communicationsTitle}</h2>

@@ -10,5 +10,41 @@
     "attachment": null,
     "author": "Alvaro Villalba",
     "updatedAt": "2026-10-12T23:02:35.193Z"
+  },
+  {
+    "id": "pay-guia-alta-casinos",
+    "title": "Alta y configuración de casinos",
+    "kind": "Proceso",
+    "description": "Plantilla para registrar datos, accesos y métodos de pago de un casino.",
+    "steps": ["Confirmar la solicitud y el responsable del casino.", "Registrar nombre, contacto, estado y métodos habilitados en administración de Orbital Pay.", "Verificar con el equipo correspondiente que los datos y accesos sean correctos.", "Dejar constancia de la fecha de alta y de cualquier pendiente."],
+    "content": "## Alcance\n\nPlantilla inicial para documentar el alta de un casino. Adaptar los campos, validaciones y canales a los controles vigentes del equipo antes de usarla como procedimiento.\n\n## Registro\n\nCompletar el nombre del casino, contacto responsable, estado, métodos de pago habilitados y fecha de actualización. Registrar quién confirmó la información y dónde se encuentran los accesos autorizados. No incluir contraseñas ni códigos de autenticación en esta guía.",
+    "author": "Sistema"
+  },
+  {
+    "id": "pay-guia-seguimiento-pagos",
+    "title": "Seguimiento de pagos",
+    "kind": "Proceso",
+    "description": "Guía inicial para documentar la revisión y el seguimiento de depósitos o retiros.",
+    "steps": ["Reunir los identificadores y comprobantes disponibles.", "Buscar la operación en Orbital Pay y en el portal del método correspondiente.", "Comparar importe, fecha, hora, estado e identificadores.", "Registrar el resultado, la respuesta enviada y cualquier derivación pendiente."],
+    "content": "## Alcance\n\nPlantilla de referencia para documentar el seguimiento de pagos. Los pasos y plazos deben ajustarse a los procesos vigentes y a las instrucciones del equipo.\n\n## Datos útiles para el seguimiento\n\n- Casino y método de pago\n- Tipo de operación\n- ID de jugador, transacción y orden externa\n- Importe y fecha/hora\n- Estado observado en cada sistema\n- Resultado de la verificación y respuesta comunicada\n\nNo registrar datos sensibles de tarjetas, credenciales ni códigos de autenticación.",
+    "author": "Sistema"
+  },
+  {
+    "id": "pay-guia-conciliacion",
+    "title": "Conciliación de operaciones",
+    "kind": "Proceso",
+    "description": "Plantilla para registrar totales, diferencias y resultados de una conciliación.",
+    "steps": ["Definir el período, casino, cuenta y fuentes que se van a comparar.", "Importar los reportes disponibles y conservar sus referencias.", "Comparar cantidades e importes por estado y localizar diferencias.", "Documentar hallazgos, análisis, respuesta manual y acciones pendientes."],
+    "content": "## Alcance\n\nPlantilla para dejar evidencia de una conciliación. Confirmar fuentes, definiciones de estados, zona horaria y criterios de cierre con el equipo antes de aplicar.\n\n## Resumen de conciliación\n\nRegistrar el período revisado, total de movimientos, aprobados, no aprobados, sin retiro y ambiguos. Explicar diferencias, duplicados o elementos fuera de período y dejar indicada la persona que revisó el resultado.",
+    "author": "Sistema"
+  },
+  {
+    "id": "pay-guia-incidentes",
+    "title": "Registro y derivación de incidentes",
+    "kind": "Proceso",
+    "description": "Plantilla para documentar incidentes operativos y su seguimiento.",
+    "steps": ["Registrar cuándo ocurrió, casino, servicio afectado e impacto observado.", "Reunir identificadores y evidencia necesaria, evitando datos sensibles innecesarios.", "Derivar por el canal vigente e indicar prioridad según los criterios internos.", "Actualizar el historial con respuesta, resolución y pendientes."],
+    "content": "## Alcance\n\nPlantilla inicial para documentar incidentes y derivaciones. Completar los canales, prioridades y tiempos de respuesta según el procedimiento vigente del equipo.\n\n## Registro\n\nDescribir el comportamiento observado, alcance e impacto. Anotar hora y zona horaria, operaciones relacionadas, evidencia disponible, responsable de seguimiento, destinatario de la derivación y estado actual. Mantener actualizaciones breves y trazables.",
+    "author": "Sistema"
   }
 ]
