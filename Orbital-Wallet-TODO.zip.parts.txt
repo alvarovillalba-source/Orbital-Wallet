@@ -1,0 +1,5 @@
+El archivo Orbital-Wallet-TODO.zip se guardó en tres partes para respetar el límite de 100 MB por archivo de GitHub.
+
+Para reconstruirlo en Linux desde esta carpeta:
+cat Orbital-Wallet-TODO.zip.part-aa Orbital-Wallet-TODO.zip.part-ab Orbital-Wallet-TODO.zip.part-ac > Orbital-Wallet-TODO.zip
+unzip -t Orbital-Wallet-TODO.zip
