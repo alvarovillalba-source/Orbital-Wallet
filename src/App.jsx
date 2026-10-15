@@ -1,12 +1,13 @@
 import "./App.css";
 import logo from "./assets/Logo.png";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { documentoAHtml } from "./documentContent";
 import CommunicationEditor from "./CommunicationEditor";
 import PayGuidePage from "./PayGuidePage";
 import PayOptionsPage from "./PayOptionsPage";
 import PayCaseRecordsPage from "./PayCaseRecordsPage";
+import PayCaseChangeHistoryPage from "./PayCaseChangeHistoryPage";
 import PayCasesPage from "./PayCasesPage";
 import { useSharedPolling } from "./useSharedPolling";
 
@@ -502,7 +503,8 @@ function Header({ content, username = "" }) {
         </button>}
       </div>
       <div className="hero-content">
-        <img src={content.logoUrl || logo} alt="Orbital Wallet" className="logo-image" />
+        <svg className="logo-filter-defs" aria-hidden="true" focusable="false"><filter id="orbital-logo-cutout" colorInterpolationFilters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 1 0 0 0 0" /></filter></svg>
+        <img src={content.logoUrl || logo} alt="Orbital Wallet" className={`logo-image${content.logoUrl ? "" : " logo-image-orbital"}`} />
         <div>
           <p>{content.headerSubtitle}</p>
         </div>
@@ -552,6 +554,44 @@ function findDocumentForProcess(content, process) {
   return null;
 }
 
+function WalletHtmlDocumentFrame({ html, title }) {
+  const frameRef = useRef(null);
+  const cleanHtml = DOMPurify.sanitize(String(html || "")
+    .replace(/<a\b[^>]*>[\s\S]*?\b(?:editar|edit)\b[\s\S]*?<\/a\s*>/gi, "")
+    .replace(/<button\b[^>]*>(?:(?!<\/button>)[\s\S]){0,1000}?(?:guardar(?:\s+una)?\s+copia|imprimir(?:\s*\/\s*pdf)?|save\s+copy|print)(?:(?!<\/button>)[\s\S]){0,1000}?<\/button>/gi, "")
+    .replace(/\scontenteditable(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, ""), { WHOLE_DOCUMENT: true });
+  const applyTheme = () => {
+    try {
+      const frameDocument = frameRef.current?.contentDocument;
+      if (!frameDocument) return;
+      const light = document.documentElement.dataset.theme === "light";
+      frameDocument.documentElement.dataset.orbitalTheme = light ? "light" : "dark";
+      let style = frameDocument.getElementById("orbital-reader-width-theme");
+      if (!style) { style = frameDocument.createElement("style"); style.id = "orbital-reader-width-theme"; frameDocument.head.appendChild(style); }
+      style.textContent = `.wrap{width:100%!important;max-width:none!important;padding-left:clamp(20px,3vw,64px)!important;padding-right:clamp(20px,3vw,64px)!important}.content{width:100%!important;max-width:none!important;padding-left:clamp(20px,3vw,64px)!important;padding-right:clamp(20px,3vw,64px)!important}${light ? `:root[data-orbital-theme="light"]{color-scheme:light;--bg:#f0ede7;--panel:#fbfaf7;--panel2:#ece8e1;--line:#d8d1c7;--text:#25364a;--muted:#667589}body{background:#f0ede7!important;color:#25364a!important}.sidebar,aside{background:linear-gradient(180deg,#f7f4ef,#eae5dd)!important;border-color:#d8d1c7!important}.sidebar a{color:#344860!important}.sidebar a:hover,.sidebar a.active{background:#eadfe1!important;color:#922d43!important}.topbar{background:#fbfaf7f2!important;border-color:#d8d1c7!important;color:#52647a!important}.intro,.topic,article,.card,.side-note,.shot,.content-card,section.topic{background:#fff!important;border-color:#d8d1c7!important;color:#25364a!important;box-shadow:0 8px 24px #53473512!important}.intro h1,.topic h1,.topic h2,.topic h3,.topic h4{color:#25364a!important}.intro p,.topic p,.topic li,.content-card,footer,figcaption{color:#42546b!important}.note{background:#f7e9e8!important;border-color:#c73350!important;color:#4a3540!important}.toolbar button,.topbar button{background:#fff!important;border-color:#d2c8bd!important;color:#344860!important}.toolbar button.primary,.topbar button.primary{background:#c73350!important;color:#fff!important}a{color:#a9274c!important}` : ""}`;
+    } catch { /* La fuente HTML sigue disponible dentro del marco aislado. */ }
+  };
+  useEffect(() => {
+    const observer = new MutationObserver(applyTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => { observer.disconnect(); frameRef.current?._heightObserver?.disconnect(); };
+  }, []);
+  const handleLoad = () => {
+    const frame = frameRef.current;
+    applyTheme();
+    try {
+      const frameDocument = frame?.contentDocument;
+      if (!frameDocument) return;
+      const resize = () => { frame.style.height = `${Math.max(frameDocument.documentElement.scrollHeight, frameDocument.body?.scrollHeight || 0, window.innerHeight * 0.85)}px`; };
+      resize();
+      frame._heightObserver?.disconnect();
+      frame._heightObserver = new ResizeObserver(resize);
+      frame._heightObserver.observe(frameDocument.documentElement);
+    } catch { /* En caso de restricciones del navegador, el marco mantiene su altura mínima. */ }
+  };
+  return <div className="integrated-document-original"><iframe ref={frameRef} title={`Documento original: ${title}`} srcDoc={cleanHtml} sandbox="allow-same-origin" onLoad={handleLoad} /></div>;
+}
+
 function DocumentPage({ document, category, content }) {
   return (
     <div className="app" style={getBrandStyles(content)}>
@@ -566,7 +606,9 @@ function DocumentPage({ document, category, content }) {
               <h1>{document.title}</h1>
             </div>
           </header>
-          {document.originalHtmlUrl ? (
+          {/<html\b/i.test(document.content || "") ? (
+            <WalletHtmlDocumentFrame html={document.content} title={document.title} />
+          ) : document.originalHtmlUrl ? (
             <div className="integrated-document-original">
               <iframe
                 title={`Documento original: ${document.title}`}
@@ -1928,7 +1970,19 @@ function App() {
   if (ruta === "admin/pay/registros") {
     if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
     if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
-    return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin />;
+    return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin currentUsername={usuarioSesion} />;
+  }
+
+  if (ruta === "admin/pay/registros-eliminados") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin deletedArchive currentUsername={usuarioSesion} />;
+  }
+
+  if (ruta === "admin/pay/solicitudes-revisadas") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <PayCaseChangeHistoryPage content={content} getBrandStyles={getBrandStyles} Header={Header} />;
   }
 
   if (ruta === "admin/pay/casos") {
@@ -1983,7 +2037,7 @@ function App() {
   if (ruta === "modulos") return <ModulePicker content={content} />;
   if (ruta === "orbital-pay") return <OrbitalPayPage content={content} />;
   if (ruta === "orbital-pay/casos") return <PayCasesPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin={false} />;
-  if (ruta === "orbital-pay/registros") return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin={false} />;
+  if (ruta === "orbital-pay/registros") return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin={false} currentUsername={usuarioSesion} />;
   if (ruta.startsWith("orbital-pay/guia/")) {
     const [, , guideId, action] = ruta.split("/");
     if (action === "editar") return <AdminAccessRedirect target="/orbital-pay" />;

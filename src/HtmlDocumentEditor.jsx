@@ -11,7 +11,7 @@ function editableHtml(source) {
   const editorScript = `<script id="orbital-admin-editor">
 (function(){
   var activeImage=null, lastEditable=null, savedRange=null, timer, imageDrag=null;
-  var editorStyle=document.createElement('style');editorStyle.id='orbital-admin-editor-style';editorStyle.textContent='[contenteditable="true"]:hover{outline:1px dashed #ed1b2f;outline-offset:2px;cursor:text}img:hover{outline:2px solid #ed1b2f;outline-offset:2px;cursor:grab}.orbital-image-moving{cursor:grabbing!important}';document.head.appendChild(editorStyle);
+  var editorStyle=document.createElement('style');editorStyle.id='orbital-admin-editor-style';editorStyle.textContent='[contenteditable="true"]:hover{outline:1px dashed #ed1b2f;outline-offset:2px;cursor:text}img:hover{outline:2px solid #ed1b2f;outline-offset:2px;cursor:grab}.orbital-image-moving{cursor:grabbing!important}.wrap{width:100%!important;max-width:none!important;padding-left:clamp(20px,3vw,64px)!important;padding-right:clamp(20px,3vw,64px)!important}.content{width:100%!important;max-width:none!important;padding-left:clamp(20px,3vw,64px)!important;padding-right:clamp(20px,3vw,64px)!important}';document.head.appendChild(editorStyle);
   document.querySelectorAll('p,h1,h2,h3,h4,h5,h6,li,figcaption,td,th,.note,aside,.intro .eyebrow,label,summary,blockquote,dt,dd,caption,pre').forEach(function(node){node.setAttribute('contenteditable','true');});
   function rememberSelection(){var selection=window.getSelection();if(selection&&selection.rangeCount&&lastEditable&&lastEditable.contains(selection.anchorNode))savedRange=selection.getRangeAt(0).cloneRange();}
   function report(){parent.postMessage({type:'orbital-html-changed',html:'<!doctype html>\\n'+document.documentElement.outerHTML},'*');}
@@ -31,6 +31,7 @@ function editableHtml(source) {
   },true);
   window.addEventListener('message',function(event){
     var data=event.data||{};
+    if(data.type==='orbital-editor-theme'){var light=data.theme==='light';document.documentElement.dataset.orbitalTheme=light?'light':'dark';var theme=document.getElementById('orbital-admin-theme-style');if(!theme){theme=document.createElement('style');theme.id='orbital-admin-theme-style';document.head.appendChild(theme);}theme.textContent=light?':root[data-orbital-theme="light"]{color-scheme:light;--bg:#f0ede7;--panel:#fbfaf7;--panel2:#ece8e1;--line:#d8d1c7;--text:#25364a;--muted:#667589}body{background:#f0ede7!important;color:#25364a!important}.sidebar,aside{background:linear-gradient(180deg,#f7f4ef,#eae5dd)!important;border-color:#d8d1c7!important}.topbar,header.topbar{background:#fbfaf7f2!important;border-color:#d8d1c7!important;color:#52647a!important}.intro,.topic,article,.card,.side-note,.shot,.content-card,section.topic{background:#fff!important;border-color:#d8d1c7!important;color:#25364a!important}.intro h1,.topic h1,.topic h2,.topic h3,.topic h4{color:#25364a!important}.intro p,.topic p,.topic li,.content-card,footer{color:#42546b!important}.note{background:#f7e9e8!important;color:#4a3540!important}.toolbar button,.topbar button{background:#fff!important;color:#344860!important;border-color:#d2c8bd!important}.toolbar button.primary,.topbar button.primary{background:#c73350!important;color:#fff!important}':'';return;}
     if(data.type==='orbital-format-text'&&lastEditable){lastEditable.focus();var selection=window.getSelection();selection.removeAllRanges();if(savedRange)selection.addRange(savedRange);if(data.command==='lineHeight'){var lineBlock=selection.anchorNode&&selection.anchorNode.parentElement&&selection.anchorNode.parentElement.closest('p,h1,h2,h3,h4,h5,h6,li,blockquote,div');if(lineBlock)lineBlock.style.lineHeight=data.value;}else{document.execCommand('styleWithCSS',false,true);if(data.command==='formatBlock')document.execCommand('formatBlock',false,data.value);else if(data.command==='createLink'){if(data.value)document.execCommand('createLink',false,data.value);}else document.execCommand(data.command,false,data.value||null);}rememberSelection();report();}
     if(data.type==='orbital-image-style'&&activeImage){if(data.width)activeImage.style.width=data.width+'%';var offset=getImageOffset(activeImage);if(typeof data.xOffset==='number')offset.x=data.xOffset;if(typeof data.yOffset==='number')offset.y=data.yOffset;if(typeof data.xOffset==='number'||typeof data.yOffset==='number')activeImage.style.translate=offset.x+'px '+offset.y+'px';if(data.layout){activeImage.style.float='';activeImage.style.verticalAlign='';if(data.layout==='left'){activeImage.style.display='block';activeImage.style.float='left';activeImage.style.margin='12px 18px 12px 0';}else if(data.layout==='right'){activeImage.style.display='block';activeImage.style.float='right';activeImage.style.margin='12px 0 12px 18px';}else if(data.layout==='inline'){activeImage.style.display='inline-block';activeImage.style.float='none';activeImage.style.verticalAlign='middle';activeImage.style.margin='0 6px';}else{activeImage.style.display='block';activeImage.style.float='none';activeImage.style.margin='12px auto';}}reportImage();report();}
     if(data.type==='orbital-image-move'&&activeImage){var item=activeImage.closest('figure')||activeImage;var sibling=data.direction<0?item.previousElementSibling:item.nextElementSibling;if(sibling){if(data.direction<0)item.parentNode.insertBefore(item,sibling);else item.parentNode.insertBefore(item,sibling.nextElementSibling);report();}}
@@ -55,6 +56,7 @@ function htmlWithoutEditorTools(html) {
   return String(html || "")
     .replace(/<script\s+id=["']orbital-admin-editor["'][^>]*>[\s\S]*?<\/script>/i, "")
     .replace(/<style\s+id=["']orbital-admin-editor-style["'][^>]*>[\s\S]*?<\/style>/i, "")
+    .replace(/<style\s+id=["']orbital-admin-theme-style["'][^>]*>[\s\S]*?<\/style>/i, "")
     .replace(/<button\b[^>]*>(?:(?!<\/button>)[\s\S]){0,1000}?(?:guardar(?:\s+una)?\s+copia|imprimir(?:\s*\/\s*pdf)?|save\s+copy|print)(?:(?!<\/button>)[\s\S]){0,1000}?<\/button>/gi, "")
     .replace(/\scontenteditable(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, "");
 }
@@ -103,6 +105,7 @@ export default function HtmlDocumentEditor({ document, category, content, getBra
   }, [document.content, document.originalHtmlUrl]);
 
   useEffect(() => {
+    const sendTheme = () => frameRef.current?.contentWindow?.postMessage({ type: "orbital-editor-theme", theme: document.documentElement.dataset.theme === "light" ? "light" : "dark" }, "*");
     const receive = (event) => {
       if (event.source !== frameRef.current?.contentWindow) return;
       if (event.data?.type === "orbital-html-changed") {
@@ -119,7 +122,9 @@ export default function HtmlDocumentEditor({ document, category, content, getBra
       }
     };
     window.addEventListener("message", receive);
-    return () => window.removeEventListener("message", receive);
+    const observer = new MutationObserver(sendTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => { window.removeEventListener("message", receive); observer.disconnect(); };
   }, []);
 
   const sendToFrame = (message) => frameRef.current?.contentWindow?.postMessage(message, "*");
@@ -258,7 +263,7 @@ export default function HtmlDocumentEditor({ document, category, content, getBra
               {selectedImage.src && <button type="button" onClick={applyImageUrl}>Aplicar URL y texto alternativo</button>}
             </section>
             <div className="html-document-preview-heading"><strong>Vista editable de la página</strong><small>Los cambios se publican al guardar el documento.</small></div>
-            <iframe ref={frameRef} className="html-document-edit-frame" title={`Vista editable: ${draft.title}`} srcDoc={preview} sandbox="allow-scripts allow-forms allow-downloads allow-modals" />
+            <iframe ref={frameRef} className="html-document-edit-frame" title={`Vista editable: ${draft.title}`} srcDoc={preview} sandbox="allow-scripts allow-forms allow-downloads allow-modals" onLoad={() => frameRef.current?.contentWindow?.postMessage({ type: "orbital-editor-theme", theme: document.documentElement.dataset.theme === "light" ? "light" : "dark" }, "*")} />
           </form>
         </div>
       </main>

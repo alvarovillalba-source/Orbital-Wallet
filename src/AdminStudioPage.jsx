@@ -5,6 +5,10 @@ export default function AdminStudioPage({ content, getBrandStyles, Header, onSav
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    const sendTheme = () => frameRef.current?.contentWindow?.postMessage({
+      type: "orbital-studio-theme",
+      theme: document.documentElement.dataset.theme === "light" ? "light" : "dark",
+    }, "*");
     const sendOptions = () => frameRef.current?.contentWindow?.postMessage({
       type: "orbital-studio-options",
       categories: (content.categories || []).map(({ target, title }) => ({ target, title })),
@@ -59,7 +63,9 @@ export default function AdminStudioPage({ content, getBrandStyles, Header, onSav
       } finally { setBusy(false); }
     };
     window.addEventListener("message", receive);
-    return () => window.removeEventListener("message", receive);
+    const themeObserver = new MutationObserver(sendTheme);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => { window.removeEventListener("message", receive); themeObserver.disconnect(); };
   }, [content, onSaveContent, busy]);
 
   return (
@@ -78,7 +84,10 @@ export default function AdminStudioPage({ content, getBrandStyles, Header, onSav
           className="admin-studio-frame"
           title="Orbital Studio · Constructor de guías"
           src="/orbital-studio.html"
-          onLoad={() => frameRef.current?.contentWindow?.postMessage({ type: "orbital-studio-options", categories: (content.categories || []).map(({ target, title }) => ({ target, title })) }, "*")}
+          onLoad={() => {
+            frameRef.current?.contentWindow?.postMessage({ type: "orbital-studio-options", categories: (content.categories || []).map(({ target, title }) => ({ target, title })) }, "*");
+            frameRef.current?.contentWindow?.postMessage({ type: "orbital-studio-theme", theme: document.documentElement.dataset.theme === "light" ? "light" : "dark" }, "*");
+          }}
           sandbox="allow-scripts allow-forms allow-downloads allow-modals"
         />
         {busy && <div className="admin-studio-saving" role="status">Publicando documento en el módulo elegido…</div>}

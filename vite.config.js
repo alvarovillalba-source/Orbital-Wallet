@@ -12,6 +12,8 @@ const configFile = path.resolve(process.cwd(), 'data/site-config.json')
 const usuariosFile = path.resolve(process.cwd(), 'data/usuarios.json')
 const payCasinosFile = path.resolve(process.cwd(), 'data/pay-casinos.json')
 const payCasesFile = path.resolve(process.cwd(), 'data/pay-cases.json')
+const deletedPayCasesFile = path.resolve(process.cwd(), 'data/pay-casos-eliminados.json')
+const payCaseChangeRequestsFile = path.resolve(process.cwd(), 'data/pay-casos-solicitudes.json')
 const payGuidesFile = path.resolve(process.cwd(), 'data/pay-guides.json')
 const portalsFile = path.resolve(process.cwd(), 'data/portales.json')
 const authSessions = new Map()
@@ -100,6 +102,13 @@ function sendJson(response, status, data) {
 
 function slugifyDocumentTitle(title) {
   return title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+function monedaSegunCasino(name) {
+  const normalized = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  if (normalized.includes('paraguay')) return 'PYG'
+  if (normalized.includes('argentina')) return 'ARS'
+  return ''
 }
 
 function htmlSoloLectura(html) {
@@ -423,7 +432,22 @@ async function importarGuiaDesdeUrl(value) {
         : /proceso|workflow|flujo/.test(searchable) ? 'Proceso' : 'Documentación'
   const steps = []
   const imageCount = (content.match(/<img\b/gi) || []).length
-  return { title: cleanTitle, kind, description: description || excerpt, steps, content, imageCount, sourceUrl: originalUrl }
+  const htmlDocument = sourceText.length <= 2 * 1024 * 1024
+    ? sourceText
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '')
+      .replace(/<img\b[^>]*>/gi, (tag) => {
+        const source = tag.match(/\bsrc\s*=\s*(["'])(.*?)\1/i)?.[2]?.replace(/&amp;/gi, '&') || ''
+        if (!source) return ''
+        let resolved = source
+        if (!source.startsWith('data:')) {
+          try { resolved = new URL(source, url).toString() } catch { return '' }
+        }
+        const localImage = importedImages.get(resolved) || importedImages.get(source)
+        const safeSource = localImage || resolved
+        return tag.replace(/\bsrc\s*=\s*(["']).*?\1/i, `src="${safeSource.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)
+      })
+    : ''
+  return { title: cleanTitle, kind, description: description || excerpt, steps, content, htmlDocument, imageCount, sourceUrl: originalUrl }
 }
 
 function comunicadosApi() {
@@ -532,7 +556,7 @@ function comunicadosApi() {
         if (actor.role !== 'administrador') return sendJson(response, 403, { error: 'Solo administración puede modificar las guías.' })
         try {
           const guides = await readRequestBody(request)
-          if (!Array.isArray(guides) || guides.length > 500 || guides.some((guide) => !guide || typeof guide.id !== 'string' || typeof guide.title !== 'string' || !guide.title.trim() || guide.title.length > 200 || typeof guide.kind !== 'string' || typeof guide.description !== 'string' || guide.description.length > 5000 || !Array.isArray(guide.steps) || guide.steps.length > 100 || guide.steps.some((step) => typeof step !== 'string' || step.length > 2000) || typeof (guide.content || '') !== 'string' || (guide.content || '').length > 100000 || (guide.sourceUrl && (typeof guide.sourceUrl !== 'string' || guide.sourceUrl.length > 4000 || !/^https:\/\//i.test(guide.sourceUrl))) || (guide.attachment && typeof guide.attachment.url !== 'string'))) return sendJson(response, 400, { error: 'Revisá los campos de las guías antes de guardar.' })
+          if (!Array.isArray(guides) || guides.length > 500 || guides.some((guide) => !guide || typeof guide.id !== 'string' || typeof guide.title !== 'string' || !guide.title.trim() || guide.title.length > 200 || typeof guide.kind !== 'string' || typeof guide.description !== 'string' || guide.description.length > 5000 || !Array.isArray(guide.steps) || guide.steps.length > 100 || guide.steps.some((step) => typeof step !== 'string' || step.length > 2000) || typeof (guide.content || '') !== 'string' || (guide.content || '').length > 100000 || (guide.htmlDocument && (typeof guide.htmlDocument !== 'string' || guide.htmlDocument.length > 2 * 1024 * 1024)) || (guide.sourceUrl && (typeof guide.sourceUrl !== 'string' || guide.sourceUrl.length > 4000 || !/^https:\/\//i.test(guide.sourceUrl))) || (guide.attachment && typeof guide.attachment.url !== 'string'))) return sendJson(response, 400, { error: 'Revisá los campos de las guías antes de guardar.' })
           fs.writeFileSync(payGuidesFile, JSON.stringify(guides, null, 2))
           return sendJson(response, 200, { ok: true })
         } catch { return sendJson(response, 400, { error: 'No se pudieron guardar las guías.' }) }
@@ -592,32 +616,151 @@ function comunicadosApi() {
         } catch { return sendJson(response, 400, { error: 'No se pudo guardar el reporte.' }) }
       })
 
+      server.middlewares.use('/api/pay/casos-eliminados', (request, response, next) => {
+        const actor = currentSessionUser(request)
+        if (!actor || actor.role !== 'administrador') return sendJson(response, 403, { error: 'Solo administración puede consultar los registros eliminados.' })
+        if (request.method !== 'GET') return sendJson(response, 405, { error: 'El archivo de registros eliminados es de solo lectura.' })
+        if (!fs.existsSync(deletedPayCasesFile)) fs.writeFileSync(deletedPayCasesFile, '[]')
+        return sendJson(response, 200, JSON.parse(fs.readFileSync(deletedPayCasesFile, 'utf8')))
+      })
+
+      server.middlewares.use('/api/pay/casos-solicitudes', async (request, response, next) => {
+        const actor = currentSessionUser(request)
+        if (!actor || (actor.role !== 'administrador' && !actor.projects?.includes('pay'))) return sendJson(response, 403, { error: 'No tenés acceso a Orbital Pay.' })
+        if (request.method === 'GET') {
+          const requests = fs.existsSync(payCaseChangeRequestsFile) ? JSON.parse(fs.readFileSync(payCaseChangeRequestsFile, 'utf8')) : []
+          const visibleRequests = actor.role === 'administrador' ? requests : requests.filter((item) => item.requestedByUsername === actor.username && item.status === 'Pendiente')
+          return sendJson(response, 200, visibleRequests.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt)))
+        }
+        if (request.method !== 'POST') return sendJson(response, 405, { error: 'Método no permitido.' })
+        if (actor.role === 'administrador') return sendJson(response, 403, { error: 'Las solicitudes deben ser enviadas por el agente responsable del caso.' })
+        try {
+          const input = await readRequestBody(request)
+          const reason = typeof input.reason === 'string' ? input.reason.trim() : ''
+          if (!input.caseId || !reason || reason.length > 1000 || !input.changes || typeof input.changes !== 'object') return sendJson(response, 400, { error: 'Indicá el motivo y los cambios solicitados.' })
+          const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
+          const record = cases.find((item) => String(item.id) === String(input.caseId))
+          if (!record || record.createdByUsername !== actor.username) return sendJson(response, 403, { error: 'Solo podés solicitar cambios para un caso que registraste.' })
+          const pending = fs.existsSync(payCaseChangeRequestsFile) ? JSON.parse(fs.readFileSync(payCaseChangeRequestsFile, 'utf8')) : []
+          if (pending.some((item) => item.caseId === record.id && item.status === 'Pendiente')) return sendJson(response, 409, { error: 'Este caso ya tiene una solicitud pendiente de revisión.' })
+          const casinos = JSON.parse(fs.readFileSync(payCasinosFile, 'utf8'))
+          const change = input.changes
+          const casino = casinos.find((item) => String(item.id) === String(change.casinoId) && item.status === 'Activo')
+          const paymentMethod = casino?.paymentMethods?.find((item) => item === change.paymentMethod)
+          const amount = Number(change.amount)
+          const currency = monedaSegunCasino(casino?.name) || change.currency
+          const validAmount = Number.isFinite(amount) && amount > 0 && amount <= 100000000000000 && (currency === 'PYG' ? Number.isInteger(amount) : currency === 'ARS' && Math.abs(amount * 100 - Math.round(amount * 100)) < 1e-7)
+          const registrationType = change.registrationType || 'Normal'
+          const manualReason = typeof change.manualReason === 'string' ? change.manualReason.trim() : ''
+          const externalOrderId = typeof change.externalOrderId === 'string' ? change.externalOrderId.trim() : ''
+          if (!casino || !paymentMethod || !validAmount || !['Normal', 'Manual'].includes(registrationType) || !['Depósito', 'Retiro'].includes(change.operation) || typeof change.playerId !== 'string' || !change.playerId.trim() || change.playerId.length > 120 || typeof change.transactionId !== 'string' || !change.transactionId.trim() || change.transactionId.length > 160 || externalOrderId.length > 160 || (registrationType === 'Normal' && !externalOrderId) || (registrationType === 'Manual' && (!manualReason || manualReason.length > 1000))) return sendJson(response, 400, { error: 'Revisá los datos del caso antes de enviar la solicitud.' })
+          const normalizedChanges = { casinoId: String(casino.id), casino: casino.name, paymentMethod, registrationType, manualReason: registrationType === 'Manual' ? manualReason : '', playerId: change.playerId.trim(), transactionId: change.transactionId.trim(), externalOrderId, amount, currency, operation: change.operation }
+          const changeRequest = { id: randomBytes(16).toString('hex'), caseId: record.id, requestedBy: String(actor.displayName || actor.name || actor.username), requestedByUsername: actor.username, requestedAt: new Date().toISOString(), reason, changes: normalizedChanges, originalRecord: { ...record }, previousValues: Object.fromEntries(Object.keys(normalizedChanges).map((key) => [key, record[key]])), status: 'Pendiente' }
+          pending.push(changeRequest)
+          fs.writeFileSync(payCaseChangeRequestsFile, JSON.stringify(pending, null, 2))
+          return sendJson(response, 201, changeRequest)
+        } catch { return sendJson(response, 400, { error: 'No se pudo guardar la solicitud de cambio.' }) }
+      })
+
+      server.middlewares.use('/api/admin/pay/casos-solicitudes-resolver', async (request, response, next) => {
+        const actor = currentSessionUser(request)
+        if (!actor || actor.role !== 'administrador') return sendJson(response, 403, { error: 'Solo administración puede revisar solicitudes.' })
+        if (request.method !== 'POST') return sendJson(response, 405, { error: 'Método no permitido.' })
+        try {
+          const input = await readRequestBody(request)
+          if (!['Aprobada', 'Rechazada'].includes(input.decision)) return sendJson(response, 400, { error: 'Elegí una decisión válida.' })
+          if (input.decision === 'Aprobada' && !verifyPassword(String(input.password || ''), actor.passwordHash)) return sendJson(response, 401, { error: 'La contraseña del administrador no es correcta.' })
+          const requests = fs.existsSync(payCaseChangeRequestsFile) ? JSON.parse(fs.readFileSync(payCaseChangeRequestsFile, 'utf8')) : []
+          const changeRequest = requests.find((item) => item.id === input.requestId && item.status === 'Pendiente')
+          if (!changeRequest) return sendJson(response, 404, { error: 'La solicitud ya no está pendiente o no existe.' })
+          if (input.decision === 'Aprobada') {
+            const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
+            const record = cases.find((item) => item.id === changeRequest.caseId)
+            if (!record) return sendJson(response, 404, { error: 'El caso ya no está activo y no se puede modificar.' })
+            Object.assign(record, changeRequest.changes, { modifiedAt: new Date().toISOString(), modifiedBy: String(actor.displayName || actor.name || actor.username) })
+            fs.writeFileSync(payCasesFile, JSON.stringify(cases, null, 2))
+          }
+          changeRequest.status = input.decision
+          changeRequest.reviewedAt = new Date().toISOString()
+          changeRequest.reviewedBy = String(actor.displayName || actor.name || actor.username)
+          fs.writeFileSync(payCaseChangeRequestsFile, JSON.stringify(requests, null, 2))
+          return sendJson(response, 200, { ok: true, request: changeRequest })
+        } catch { return sendJson(response, 400, { error: 'No se pudo resolver la solicitud.' }) }
+      })
+
       server.middlewares.use('/api/pay/casos', async (request, response, next) => {
-        if (!['GET', 'POST'].includes(request.method)) return next()
+        if (!['GET', 'POST', 'DELETE'].includes(request.method)) return next()
         const actor = currentSessionUser(request)
         if (!actor || (actor.role !== 'administrador' && !actor.projects?.includes('pay'))) return sendJson(response, 403, { error: 'No tenés acceso a Orbital Pay.' })
         if (!fs.existsSync(payCasesFile)) fs.writeFileSync(payCasesFile, '[]')
-        if (request.method === 'GET') return sendJson(response, 200, JSON.parse(fs.readFileSync(payCasesFile, 'utf8')))
+        if (request.method === 'GET') {
+          const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
+          let changed = false
+          const agents = readUsers().filter((item) => item.role === 'agente')
+          for (const record of cases) {
+            if (record.createdByUsername) continue
+            const matches = agents.filter((user) => [user.displayName, user.name, user.username].filter(Boolean).some((name) => name === (record.agentName || record.author)))
+            if (matches.length === 1) { record.createdByUsername = matches[0].username; changed = true }
+          }
+          if (changed) fs.writeFileSync(payCasesFile, JSON.stringify(cases, null, 2))
+          return sendJson(response, 200, cases)
+        }
+        if (request.method === 'DELETE') {
+          if (actor.role !== 'administrador') return sendJson(response, 403, { error: 'Solo administración puede eliminar registros.' })
+          let input
+          try { input = await readRequestBody(request) } catch { return sendJson(response, 400, { error: 'No se recibieron los datos de confirmación.' }) }
+          const caseId = input.caseId
+          const reason = typeof input.reason === 'string' ? input.reason.trim() : ''
+          if (!reason || reason.length > 1000) return sendJson(response, 400, { error: 'El motivo de eliminación es obligatorio (máximo 1000 caracteres).' })
+          if (!verifyPassword(String(input.password || ''), actor.passwordHash)) return sendJson(response, 401, { error: 'La contraseña del administrador no es correcta.' })
+          if (!caseId) return sendJson(response, 400, { error: 'Falta el identificador del registro.' })
+          const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
+          const recordIndex = cases.findIndex((item) => String(item.id) === caseId)
+          if (recordIndex < 0) return sendJson(response, 404, { error: 'No se encontró el registro.' })
+          const [record] = cases.splice(recordIndex, 1)
+          const deletedCases = fs.existsSync(deletedPayCasesFile) ? JSON.parse(fs.readFileSync(deletedPayCasesFile, 'utf8')) : []
+          const changeRequests = fs.existsSync(payCaseChangeRequestsFile) ? JSON.parse(fs.readFileSync(payCaseChangeRequestsFile, 'utf8')) : []
+          changeRequests.forEach((item) => { if (item.caseId === record.id && item.status === 'Pendiente') { item.status = 'Cancelada'; item.reviewedAt = new Date().toISOString(); item.reviewedBy = 'Sistema'; item.reviewNote = 'El caso fue eliminado mientras la solicitud estaba pendiente.' } })
+          deletedCases.push({ ...record, deletedAt: new Date().toISOString(), deletedBy: String(actor.displayName || actor.name || actor.username || 'Administrador').trim(), deletedByUsername: actor.username, deletionReason: reason })
+          fs.writeFileSync(deletedPayCasesFile, JSON.stringify(deletedCases, null, 2))
+          fs.writeFileSync(payCasesFile, JSON.stringify(cases, null, 2))
+          fs.writeFileSync(payCaseChangeRequestsFile, JSON.stringify(changeRequests, null, 2))
+          return sendJson(response, 200, { ok: true, record })
+        }
         try {
           const input = await readRequestBody(request)
-          const validAmount = Boolean(input && typeof input === 'object' && typeof input.amount === 'number' && Number.isFinite(input.amount) && input.amount > 0 && input.amount <= 100000000000000 && (input.currency === 'PYG' ? Number.isInteger(input.amount) : input.currency === 'ARS' && Math.abs(input.amount * 100 - Math.round(input.amount * 100)) < 1e-7))
+          const validAmount = Boolean(input && typeof input === 'object' && typeof input.amount === 'number' && Number.isFinite(input.amount) && input.amount > 0 && input.amount <= 100000000000000)
           const registrationType = input?.registrationType || 'Normal'
           const externalOrderId = typeof input?.externalOrderId === 'string' ? input.externalOrderId.trim() : ''
           const manualReason = typeof input?.manualReason === 'string' ? input.manualReason.trim() : ''
-          if (!input || typeof input !== 'object' || !['Normal', 'Manual'].includes(registrationType) || !['Depósito', 'Retiro'].includes(input.operation) || !validAmount || typeof input.playerId !== 'string' || !input.playerId.trim() || input.playerId.length > 120 || typeof input.transactionId !== 'string' || !input.transactionId.trim() || input.transactionId.length > 160 || (input.externalOrderId !== undefined && typeof input.externalOrderId !== 'string') || externalOrderId.length > 160 || (registrationType === 'Normal' && !externalOrderId) || (registrationType === 'Manual' && (!manualReason || manualReason.length > 1000))) return sendJson(response, 400, { error: registrationType === 'Manual' ? 'Completá el motivo del registro manual, los demás datos obligatorios, el monto, la moneda y la operación.' : 'Completá casino, método de pago, IDs, monto, moneda válida y tipo de operación.' })
+          if (!input || typeof input !== 'object') return sendJson(response, 400, { error: 'No se recibieron datos válidos para el caso.' })
+          if (!['Normal', 'Manual'].includes(registrationType)) return sendJson(response, 400, { error: 'Elegí Registro normal o Registro manual.' })
+          if (!['Depósito', 'Retiro'].includes(input.operation)) return sendJson(response, 400, { error: 'Elegí Depósito o Retiro como operación.' })
+          if (!validAmount) {
+            return sendJson(response, 400, { error: 'Ingresá un monto válido mayor que cero.' })
+          }
+          if (typeof input.playerId !== 'string' || !input.playerId.trim() || input.playerId.length > 120) return sendJson(response, 400, { error: 'Completá el ID de jugador (máximo 120 caracteres).' })
+          if (typeof input.transactionId !== 'string' || !input.transactionId.trim() || input.transactionId.length > 160) return sendJson(response, 400, { error: 'Completá el ID de transacción (máximo 160 caracteres).' })
+          if ((input.externalOrderId !== undefined && typeof input.externalOrderId !== 'string') || externalOrderId.length > 160 || (registrationType === 'Normal' && !externalOrderId)) return sendJson(response, 400, { error: registrationType === 'Normal' ? 'El ID de orden externa es obligatorio para un registro normal.' : 'El ID de orden externa no puede superar 160 caracteres.' })
+          if (registrationType === 'Manual' && (!manualReason || manualReason.length > 1000)) return sendJson(response, 400, { error: 'El motivo del registro manual es obligatorio y admite hasta 1000 caracteres.' })
           const casinos = JSON.parse(fs.readFileSync(payCasinosFile, 'utf8'))
           const casino = casinos.find((item) => String(item.id) === String(input.casinoId) && item.status === 'Activo')
           if (!casino) return sendJson(response, 400, { error: 'Elegí un casino activo configurado por administración.' })
           const paymentMethod = (casino.paymentMethods || []).find((method) => method === input.paymentMethod)
           if (!paymentMethod) return sendJson(response, 400, { error: 'Elegí un método de pago habilitado para el casino.' })
+          const currency = monedaSegunCasino(casino.name) || input.currency
+          if (!['ARS', 'PYG'].includes(currency)) return sendJson(response, 400, { error: 'Elegí una moneda válida: ARS o PYG.' })
+          if ((currency === 'PYG' && !Number.isInteger(input.amount)) || (currency === 'ARS' && Math.abs(input.amount * 100 - Math.round(input.amount * 100)) >= 1e-7)) return sendJson(response, 400, { error: currency === 'PYG' ? 'El casino está en Paraguay; ingresá un monto entero en PYG.' : 'El monto en ARS admite hasta dos decimales.' })
+          if (!fs.existsSync(payCasesFile)) fs.writeFileSync(payCasesFile, '[]')
           const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
           const agentName = String(actor.displayName || actor.name || actor.username || 'Agente').trim()
-          const record = { id: randomBytes(16).toString('hex'), casinoId: String(casino.id), casino: casino.name, paymentMethod, registrationType, manualReason: registrationType === 'Manual' ? manualReason : '', playerId: input.playerId.trim(), transactionId: input.transactionId.trim(), externalOrderId, amount: input.amount, currency: input.currency, operation: input.operation, createdAt: new Date().toISOString(), agentName, author: agentName }
+          const record = { id: randomBytes(16).toString('hex'), casinoId: String(casino.id), casino: casino.name, paymentMethod, registrationType, manualReason: registrationType === 'Manual' ? manualReason : '', playerId: input.playerId.trim(), transactionId: input.transactionId.trim(), externalOrderId, amount: input.amount, currency, operation: input.operation, createdAt: new Date().toISOString(), createdByUsername: actor.username, agentName, author: agentName }
           cases.push(record)
           fs.writeFileSync(payCasesFile, JSON.stringify(cases, null, 2))
           return sendJson(response, 201, record)
         } catch { return sendJson(response, 400, { error: 'No se pudo guardar el caso.' }) }
       })
+
 
       server.middlewares.use('/api/pay/documento', (request, response, next) => {
         if (!canUsePay(request)) return sendJson(response, 403, { error: 'No tenés acceso a Orbital Pay.' })

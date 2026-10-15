@@ -1,0 +1,76 @@
+[
+  {
+    "id": "c67f161350a89895aa7f3d29a19470ce",
+    "caseId": "0169229210539fbb56362a6fea12e055",
+    "requestedBy": "Prueba",
+    "requestedByUsername": "Prueba",
+    "requestedAt": "2026-10-15T01:54:05.118Z",
+    "reason": "Error en ID de orden externa.",
+    "changes": {
+      "casinoId": "1791338144807",
+      "casino": "Azar Latino Paraguay",
+      "paymentMethod": "BNF",
+      "registrationType": "Normal",
+      "manualReason": "",
+      "playerId": "12445456",
+      "transactionId": "84984684",
+      "externalOrderId": "441646545464566",
+      "amount": 15000,
+      "currency": "PYG",
+      "operation": "Retiro"
+    },
+    "previousValues": {
+      "casinoId": "1791338144807",
+      "casino": "Azar Latino Paraguay",
+      "paymentMethod": "BNF",
+      "registrationType": "Normal",
+      "manualReason": "",
+      "playerId": "12445456",
+      "transactionId": "84984684",
+      "externalOrderId": "4898494684",
+      "amount": 15000,
+      "currency": "PYG",
+      "operation": "Retiro"
+    },
+    "status": "Aprobada",
+    "reviewedAt": "2026-10-15T01:54:44.805Z",
+    "reviewedBy": "Alvaro Villalba"
+  },
+  {
+    "id": "944542481f117b40d7595e9d808494a9",
+    "caseId": "d5910690fbf467db1670cbab4ac9d588",
+    "requestedBy": "Prueba",
+    "requestedByUsername": "Prueba",
+    "requestedAt": "2026-10-15T02:02:40.294Z",
+    "reason": "Prueba",
+    "changes": {
+      "casinoId": "1791338131787",
+      "casino": "Axar Latino Argentina (Azar 777)",
+      "paymentMethod": "HG CASH",
+      "registrationType": "Normal",
+      "manualReason": "",
+      "playerId": "dajhsdkjsahdkjas",
+      "transactionId": "jhsakhdakjshdakjs",
+      "externalOrderId": "dqwyequwwqiq",
+      "amount": 15000.1,
+      "currency": "ARS",
+      "operation": "Depósito"
+    },
+    "previousValues": {
+      "casinoId": "1791338131787",
+      "casino": "Axar Latino Argentina (Azar 777)",
+      "paymentMethod": "HG CASH",
+      "registrationType": "Normal",
+      "manualReason": "",
+      "playerId": "dajhsdkjsahdkjas",
+      "transactionId": "jhsakhdakjshdakjs",
+      "externalOrderId": "djsahdkjasbdmansbd",
+      "amount": 15000.1,
+      "currency": "ARS",
+      "operation": "Depósito"
+    },
+    "status": "Aprobada",
+    "reviewedAt": "2026-10-15T02:07:43.031Z",
+    "reviewedBy": "Alvaro Villalba"
+  }
+]
