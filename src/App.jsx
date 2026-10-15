@@ -11,6 +11,8 @@ import PayCasesPage from "./PayCasesPage";
 import { useSharedPolling } from "./useSharedPolling";
 
 const AdminDocumentEditorPage = lazy(() => import("./DocumentRichEditor.jsx"));
+const AdminHtmlDocumentEditorPage = lazy(() => import("./HtmlDocumentEditor.jsx"));
+const AdminStudioPage = lazy(() => import("./AdminStudioPage.jsx"));
 
 const CONSULTAS_KEY = "orbital-wallet-consultas";
 const COMUNICADOS_KEY = "orbital-wallet-comunicados";
@@ -569,14 +571,7 @@ function DocumentPage({ document, category, content }) {
               <iframe
                 title={`Documento original: ${document.title}`}
                 src={document.originalHtmlUrl}
-                sandbox="allow-same-origin"
-                onLoad={(event) => {
-                  const frame = event.currentTarget;
-                  const page = frame.contentDocument;
-                  if (!page) return;
-                  const height = Math.max(page.documentElement?.scrollHeight || 0, page.body?.scrollHeight || 0);
-                  if (height > 0) frame.style.height = `${height}px`;
-                }}
+                sandbox="allow-scripts allow-forms allow-downloads allow-modals"
               />
             </div>
           ) : document.content ? (
@@ -754,9 +749,11 @@ function ModulePicker({ content, isAdmin = false }) {
     <Header content={content} />
     <main className="module-picker">
       <div className="section-heading"><span className="pay-kicker">{isAdmin ? "CENTRO DE ADMINISTRACIÓN" : "PLATAFORMA ORBITAL"}</span><h1>{isAdmin ? "Elegí un módulo" : "¿A qué módulo querés ingresar?"}</h1><p>{isAdmin ? "Seleccioná el espacio que querés administrar." : "Elegí el espacio de trabajo que necesitás usar."}</p></div>
-      <div className="module-grid">
+      <div className={`module-grid${isAdmin ? " admin-home-module-grid" : ""}`}>
         {projects.includes("wallet") && <a className="module-card wallet-module" href={walletHref}><span className="module-symbol">◉</span><span className="module-tag">{isAdmin ? "CONTENIDO Y ACCESOS" : "ATENCIÓN Y OPERACIONES"}</span><h2>Orbital Wallet</h2><p>{isAdmin ? "Administrá comunicados, usuarios, documentación y portales de Wallet." : "Manuales, procedimientos y comunicados del equipo."}</p><span className="module-cta">{isAdmin ? "Administrar Wallet" : "Ingresar a Wallet"} <b>→</b></span></a>}
         {projects.includes("pay") && <a className="module-card pay-module" href={payHref}><span className="module-symbol">₱</span><span className="module-tag">{isAdmin ? "CASINOS Y OPERACIONES" : "GESTIÓN DE CASINOS"}</span><h2>Orbital Pay</h2><p>{isAdmin ? "Configurá casinos y métodos de pago para los procesos de Pay." : "Administrá casinos, contactos y el estado de cada operación."}</p><span className="module-cta">{isAdmin ? "Administrar Pay" : "Ingresar a Pay"} <b>→</b></span></a>}
+        {isAdmin && <a className="module-card portals-module" href="/admin/portales"><span className="module-symbol">↗</span><span className="module-tag">ACCESOS COMPARTIDOS</span><h2>Gestión de portales</h2><p>Administrá en un solo lugar los enlaces disponibles para Orbital Wallet y Orbital Pay.</p><span className="module-cta">Gestionar portales <b>→</b></span></a>}
+        {isAdmin && <a className="module-card studio-module" href="/admin/studio"><span className="module-symbol">✎</span><span className="module-tag">HERRAMIENTAS DE CONTENIDO</span><h2>Orbital Studio</h2><p>Importá archivos, organizá el contenido y prepará guías visuales para Wallet o Pay.</p><span className="module-cta">Abrir constructor <b>→</b></span></a>}
         {!projects.length && <p className="module-access-empty">Tu cuenta no tiene módulos habilitados. Contactá a un administrador.</p>}
       </div>
     </main>
@@ -946,6 +943,8 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
   const [communicationEditorKey, setCommunicationEditorKey] = useState(0);
     const [contentDraft, setContentDraft] = useState(content);
     const [importingDocuments, setImportingDocuments] = useState(false);
+  const [activeContentView, setActiveContentView] = useState("home");
+    const [documentImport, setDocumentImport] = useState({ categoryTarget: content.categories[0]?.target || "", title: "", url: "", file: null });
 
   useEffect(() => {
     if (authenticated) obtenerUsuariosAdmin().then(setAdminUsers).catch(() => null);
@@ -1232,24 +1231,28 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     setContentDraft((draft) => ({ ...draft, [field]: value }));
   };
 
-  const importDocuments = async () => {
-    if (!window.confirm("La importación reemplazará el contenido integrado que editaste. ¿Querés continuar?")) {
-      return;
-    }
-
+  const importDocuments = async (event) => {
+    event.preventDefault();
+    if (!documentImport.title.trim() || (!documentImport.url.trim() && !documentImport.file)) return;
     setImportingDocuments(true);
     try {
-      const response = await fetch("/api/documentos/importar", { method: "POST" });
+      let source = { ...documentImport, title: documentImport.title.trim(), config: contentDraft };
+      if (documentImport.file) {
+        if (!/^(text\/html|text\/plain)$/i.test(documentImport.file.type) && !/\.(html?|txt)$/i.test(documentImport.file.name)) throw new Error("Elegí un archivo HTML o TXT para importar.");
+        source.content = await documentImport.file.text();
+        source.fileName = documentImport.file.name;
+      }
+      const response = await fetch("/api/documentos/importar-individual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(source) });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || "No se pudieron importar los documentos.");
       }
-
       const importedContent = combinarConfiguracion(result.config);
       setContentDraft(importedContent);
       await onSaveContent(importedContent);
-      const failedDocuments = result.failed.map(({ title, reason }) => `${title}: ${reason}`).join("\n");
-      window.alert(`Documentos importados: ${result.imported.length}.${failedDocuments ? `\n\nPendientes:\n${failedDocuments}` : ""}`);
+      setActiveContentView("home");
+      setDocumentImport({ categoryTarget: documentImport.categoryTarget, title: "", url: "", file: null });
+      window.alert(`Documento “${result.document.title}” importado en ${result.category}.`);
     } catch (error) {
       window.alert(error.message || "No se pudieron importar los documentos.");
     } finally {
@@ -1362,9 +1365,10 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} admin username={sessionUsername} />
       <main className="admin-page">
-        {adminSection && <NavigationLinks admin backHref="/admin" />}
+        {adminSection && <NavigationLinks admin backHref="/admin/wallet" />}
         {!adminSection ? (
           <section className="admin-menu">
+            <nav className="pay-nav wallet-module-nav"><a className="module-switch-link" href="/admin"><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6 6m-6-6 6-6" /></svg></span><span>Volver al selector de módulos</span></a><span>ADMINISTRACIÓN / ORBITAL WALLET</span></nav>
             <div className="admin-menu-header">
               <div>
                 <span className="admin-menu-kicker">CENTRO DE CONTROL</span>
@@ -1411,13 +1415,6 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 <strong>Editar contenido</strong>
                 <small>Modificar textos, enlaces y categorías</small>
                 <span className="admin-menu-tile-link">Abrir editor <b>↗</b></span>
-              </a>
-              <a className="admin-menu-tile" href="/admin/portales">
-                <span className="admin-menu-tile-icon">↗</span>
-                <span className="admin-menu-tile-index">04</span>
-                <strong>Gestión de portales</strong>
-                <small>Administrar enlaces de Wallet y Pay</small>
-                <span className="admin-menu-tile-link">Gestionar portales <b>↗</b></span>
               </a>
             </div>
           </section>
@@ -1551,17 +1548,31 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
           </div>
 
           <form className="visual-content-editor" onSubmit={saveContent}>
-            <div className="admin-content-tools">
-              <p>Importá documentos desde sus enlaces originales para actualizarlos.</p>
-              <button className="editor-import-button" type="button" onClick={importDocuments} disabled={importingDocuments}>
-                {importingDocuments ? "Importando documentos..." : "↓ Importar o actualizar documentos"}
-              </button>
-            </div>
-            <div className="admin-editor-savebar">
-              <span>Guardá para publicar los cambios en el sitio.</span>
-              <button type="submit">Guardar cambios</button>
-            </div>
-            <details className="admin-editor-section" open>
+            {activeContentView === "home" ? <div className="admin-content-hub">
+              <div className="admin-content-hub-intro"><span>EDITOR DEL SITIO</span><h3>¿Qué querés actualizar?</h3><p>Elegí un área para abrir sus opciones. Los cambios quedan listos para guardar desde cada pantalla.</p></div>
+              <button className="admin-content-hub-card admin-content-hub-import" type="button" onClick={() => setActiveContentView("import")}><span className="admin-content-hub-icon">＋</span><span className="admin-content-hub-copy"><strong>Importar un documento</strong><small>Elegí archivo o URL, nombre y categoría de destino.</small></span><span className="admin-content-hub-meta">NUEVO DOCUMENTO</span><span className="admin-content-hub-arrow">→</span></button>
+              <div className="admin-content-hub-grid">
+                <button className="admin-content-hub-card" type="button" onClick={() => setActiveContentView("identity")}><span className="admin-content-hub-icon">✦</span><span className="admin-content-hub-copy"><strong>Identidad visual</strong><small>Logo, colores e imagen de fondo</small></span><span className="admin-content-hub-meta">4 opciones</span><span className="admin-content-hub-arrow">→</span></button>
+                <button className="admin-content-hub-card" type="button" onClick={() => setActiveContentView("texts")}><span className="admin-content-hub-icon">Aa</span><span className="admin-content-hub-copy"><strong>Textos principales</strong><small>Títulos y descripciones del sitio</small></span><span className="admin-content-hub-meta">13 campos</span><span className="admin-content-hub-arrow">→</span></button>
+                <button className="admin-content-hub-card" type="button" onClick={() => setActiveContentView("links")}><span className="admin-content-hub-icon">↗</span><span className="admin-content-hub-copy"><strong>Enlaces y preguntas</strong><small>Direcciones y contenido de preguntas frecuentes</small></span><span className="admin-content-hub-meta">3 opciones</span><span className="admin-content-hub-arrow">→</span></button>
+                <button className="admin-content-hub-card" type="button" onClick={() => setActiveContentView("categories")}><span className="admin-content-hub-icon">▤</span><span className="admin-content-hub-copy"><strong>Categorías y documentos</strong><small>Guías, textos, capturas e imágenes</small></span><span className="admin-content-hub-meta">{contentDraft.categories.length} categorías</span><span className="admin-content-hub-arrow">→</span></button>
+                <button className="admin-content-hub-card" type="button" onClick={() => setActiveContentView("processes")}><span className="admin-content-hub-icon">⌁</span><span className="admin-content-hub-copy"><strong>Procesos más utilizados</strong><small>Accesos destacados de la página principal</small></span><span className="admin-content-hub-meta">{contentDraft.processes.length} procesos</span><span className="admin-content-hub-arrow">→</span></button>
+              </div>
+            </div> : <div className="admin-content-screen-head"><button type="button" onClick={() => setActiveContentView("home")}>← Volver a todas las opciones</button><span>ADMINISTRACIÓN / CONTENIDO</span></div>}
+            {activeContentView === "import" && <div className="document-import-panel">
+              <div><strong>Nuevo documento</strong><small>Los archivos admitidos son HTML y TXT. Las URL deben ser públicas y seguras (HTTPS).</small></div>
+              <label>Nombre del documento<input value={documentImport.title} onChange={(event) => setDocumentImport((state) => ({ ...state, title: event.target.value }))} placeholder="Ej.: Guía de operaciones" required /></label>
+              <label>Categoría de destino<select value={documentImport.categoryTarget} onChange={(event) => setDocumentImport((state) => ({ ...state, categoryTarget: event.target.value }))}>{contentDraft.categories.map((category) => <option key={category.target} value={category.target}>{category.title}</option>)}</select></label>
+              <label>URL del documento<input type="url" value={documentImport.url} onChange={(event) => setDocumentImport((state) => ({ ...state, url: event.target.value, file: null }))} placeholder="https://..." /></label>
+              <label>O elegir archivo<input type="file" accept=".html,.htm,.txt,text/html,text/plain" onChange={(event) => setDocumentImport((state) => ({ ...state, file: event.target.files?.[0] || null, url: "" }))} /><small>{documentImport.file?.name || "HTML o TXT · máximo 50 MB"}</small></label>
+              <button className="editor-import-button" type="button" disabled={importingDocuments || (!documentImport.url.trim() && !documentImport.file) || !documentImport.title.trim()} onClick={importDocuments}>{importingDocuments ? "Importando…" : "Importar y guardar documento"}</button>
+            </div>}
+            {activeContentView !== "home" && activeContentView !== "import" && <div className="admin-content-screen-title"><span>{({ identity: "IDENTIDAD VISUAL", texts: "CONTENIDO DEL SITIO", links: "ENLACES Y AYUDA", categories: "BIBLIOTECA DE CONTENIDO", processes: "ACCESOS DESTACADOS" })[activeContentView]}</span><h3>{({ identity: "Identidad visual", texts: "Textos principales", links: "Enlaces y preguntas frecuentes", categories: "Categorías y documentos", processes: "Procesos más utilizados" })[activeContentView]}</h3><p>Actualizá estas opciones y guardá para aplicar los cambios al sitio.</p></div>}
+            {activeContentView !== "import" && <div className="admin-editor-savebar">
+              <span>{activeContentView === "home" ? "Guardá para publicar los cambios en el sitio." : "Los cambios se publicarán en todo el sitio."}</span>
+              <button type="submit">{activeContentView === "home" ? "Guardar cambios" : "Guardar esta sección"}</button>
+            </div>}
+            {activeContentView === "identity" && <details open className="admin-editor-section">
               <summary><span><strong>Identidad visual</strong><small>Logo, colores e imagen de fondo</small></span><span className="admin-editor-section-count">4 opciones</span></summary>
               <div className="admin-editor-section-body">
               <label>
@@ -1585,9 +1596,9 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 Restaurar logo y fondo predeterminados
               </button>
               </div>
-            </details>
+            </details>}
 
-            <details className="admin-editor-section">
+            {activeContentView === "texts" && <details open className="admin-editor-section">
               <summary><span><strong>Textos principales</strong><small>Títulos y descripciones de cada sección</small></span><span className="admin-editor-section-count">13 campos</span></summary>
               <div className="admin-editor-section-body admin-editor-field-grid">
               {[
@@ -1611,9 +1622,9 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 </label>
               ))}
               </div>
-            </details>
+            </details>}
 
-            <details className="admin-editor-section">
+            {activeContentView === "links" && <details open className="admin-editor-section">
               <summary><span><strong>Enlaces y preguntas frecuentes</strong><small>Direcciones y contenido integrado</small></span><span className="admin-editor-section-count">3 opciones</span></summary>
               <div className="admin-editor-section-body">
               {["faqUrl", "suggestionsUrl"].map((field) => (
@@ -1628,9 +1639,9 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 <textarea rows="10" value={contentDraft.faqContent || ""} onChange={(event) => updateContentField("faqContent", event.target.value)} placeholder="Pegá o editá aquí el contenido de las preguntas frecuentes" />
               </label>
               </div>
-            </details>
+            </details>}
 
-            <details className="admin-editor-section">
+            {activeContentView === "categories" && <details open className="admin-editor-section">
               <summary><span><strong>Categorías y documentos</strong><small>Guías, textos y capturas organizados por categoría</small></span><span className="admin-editor-section-count">{contentDraft.categories.length} categorías</span></summary>
               <div className="admin-editor-section-body">
               {contentDraft.categories.map((categoria, index) => (
@@ -1644,11 +1655,11 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                     <h4>Detalles de categoría</h4>
                     <button className="editor-delete-button" type="button" onClick={() => deleteCategory(index)}>Eliminar categoría</button>
                   </div>
-                  <div className="editor-row">
-                  <input aria-label="Icono de categoría" value={categoria.icon} onChange={(event) => updateListItem("categories", index, "icon", event.target.value)} />
-                  <input aria-label="URL del logo de categoría" type="url" placeholder="URL del logo" value={categoria.logo || ""} onChange={(event) => updateListItem("categories", index, "logo", event.target.value)} />
-                  <input aria-label="Título de categoría" value={categoria.title} onChange={(event) => updateListItem("categories", index, "title", event.target.value)} />
-                  <input aria-label="Descripción de categoría" value={categoria.description} onChange={(event) => updateListItem("categories", index, "description", event.target.value)} />
+                  <div className="editor-category-fields">
+                    <label className="editor-category-icon-field">Ícono<input aria-label="Icono de categoría" value={categoria.icon} onChange={(event) => updateListItem("categories", index, "icon", event.target.value)} /></label>
+                    <label>Logo<input aria-label="URL del logo de categoría" type="url" placeholder="URL del logo" value={categoria.logo || ""} onChange={(event) => updateListItem("categories", index, "logo", event.target.value)} /></label>
+                    <label>Nombre<input aria-label="Título de categoría" value={categoria.title} onChange={(event) => updateListItem("categories", index, "title", event.target.value)} /></label>
+                    <label>Descripción<input aria-label="Descripción de categoría" value={categoria.description} onChange={(event) => updateListItem("categories", index, "description", event.target.value)} /></label>
                   </div>
                   <label>
                     Contenido adicional de la categoría
@@ -1694,9 +1705,9 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 + Crear nueva categoría
               </button>
               </div>
-            </details>
+            </details>}
 
-            <details className="admin-editor-section">
+            {activeContentView === "processes" && <details open className="admin-editor-section">
               <summary><span><strong>Procesos más utilizados</strong><small>Accesos destacados de la página principal</small></span><span className="admin-editor-section-count">{contentDraft.processes.length} procesos</span></summary>
               <div className="admin-editor-section-body">
               {contentDraft.processes.map((proceso, index) => (
@@ -1707,12 +1718,12 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                 </div>
               ))}
               </div>
-            </details>
+            </details>}
 
-            <div className="admin-editor-savebar admin-editor-savebar-bottom">
+            {activeContentView === "home" && <div className="admin-editor-savebar admin-editor-savebar-bottom">
               <span>Los cambios se aplicarán a todo el sitio.</span>
               <button type="submit">Guardar todos los cambios</button>
-            </div>
+            </div>}
           </form>
         </section>}
       </main>
@@ -1863,7 +1874,7 @@ function App() {
     if (category && document) {
       return (
         <Suspense fallback={<div className="app" style={getBrandStyles(content)} />}>
-          <AdminDocumentEditorPage
+          {document.originalHtmlUrl ? <AdminHtmlDocumentEditorPage
             document={document}
             category={category}
             content={content}
@@ -1872,11 +1883,27 @@ function App() {
             Header={Header}
             NavigationLinks={NavigationLinks}
             slugifyDocumentTitle={slugifyDocumentTitle}
-          />
+            onSaveContent={guardarYActualizarContenido}
+          /> : <AdminDocumentEditorPage
+            document={document}
+            category={category}
+            content={content}
+            getBrandStyles={getBrandStyles}
+            getDocumentRoute={getDocumentRoute}
+            Header={Header}
+            NavigationLinks={NavigationLinks}
+            slugifyDocumentTitle={slugifyDocumentTitle}
+          />}
         </Suspense>
       );
     }
     return <AdminAccessRedirect target="/admin/contenido" />;
+  }
+
+  if (ruta === "admin/studio") {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    return <Suspense fallback={<div className="app" style={getBrandStyles(content)} />}><AdminStudioPage content={content} getBrandStyles={getBrandStyles} Header={Header} onSaveContent={guardarYActualizarContenido} /></Suspense>;
   }
 
   if (ruta === "admin") {

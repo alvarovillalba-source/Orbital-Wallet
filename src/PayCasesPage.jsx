@@ -5,6 +5,8 @@ export default function PayCasesPage({ content, getBrandStyles, Header, isAdmin 
   const [casinos, setCasinos] = useState([]);
   const [casinoId, setCasinoId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
+  const [registrationType, setRegistrationType] = useState("Normal");
+  const [manualReason, setManualReason] = useState("");
   const [playerId, setPlayerId] = useState("");
   const [transactionId, setTransactionId] = useState("");
   const [externalOrderId, setExternalOrderId] = useState("");
@@ -37,11 +39,11 @@ export default function PayCasesPage({ content, getBrandStyles, Header, isAdmin 
     event.preventDefault();
     setSaving(true); setMessage("");
     try {
-      const response = await fetch("/api/pay/casos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ casinoId, paymentMethod, playerId, transactionId, externalOrderId, amount: Number(amount), currency, operation }) });
+      const response = await fetch("/api/pay/casos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ casinoId, paymentMethod, registrationType, manualReason, playerId, transactionId, externalOrderId, amount: Number(amount), currency, operation }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo guardar el caso.");
       const time = new Intl.DateTimeFormat("es-PY", { dateStyle: "short", timeStyle: "medium", timeZone: "America/Asuncion" }).format(new Date(result.createdAt));
-      setPlayerId(""); setTransactionId(""); setExternalOrderId(""); setAmount(""); setCurrency("");
+      setPlayerId(""); setTransactionId(""); setExternalOrderId(""); setManualReason(""); setRegistrationType("Normal"); setAmount(""); setCurrency("");
       setMessage(`Caso registrado el ${time} por ${result.agentName || result.author || "Agente"}.`);
     } catch (error) { setMessage(error.message); }
     finally { setSaving(false); }
@@ -54,11 +56,13 @@ export default function PayCasesPage({ content, getBrandStyles, Header, isAdmin 
       <div className="pay-heading"><div><span className="pay-kicker">OPERACIONES</span><h1>Registro de casos</h1><p>Registrá depósitos y retiros usando las opciones habilitadas por administración.</p></div><a className="pay-case-admin-link" href={isAdmin ? "/admin/pay/registros" : "/orbital-pay/registros"}>Consultar registros de agentes →</a></div>
       <section className="pay-panel pay-case-form-panel"><div className="pay-panel-title"><span>＋</span><div><small>NUEVO REGISTRO</small><h2>Registrar caso</h2></div></div>
         <form className="pay-case-form" onSubmit={submit}>
+          <fieldset className="pay-case-mode-selector"><legend>Tipo de registro</legend><label className={registrationType === "Normal" ? "is-selected" : ""}><input type="radio" name="registrationType" value="Normal" checked={registrationType === "Normal"} onChange={() => setRegistrationType("Normal")} /><span><strong>Registro normal</strong><small>Incluye ID de orden externa.</small></span></label><label className={registrationType === "Manual" ? "is-selected" : ""}><input type="radio" name="registrationType" value="Manual" checked={registrationType === "Manual"} onChange={() => setRegistrationType("Manual")} /><span><strong>Registro manual</strong><small>Requiere indicar el motivo.</small></span></label></fieldset>
           <label>Casino<select value={casinoId} onChange={(event) => setCasinoId(event.target.value)} required><option value="">Elegí un casino</option>{activeCasinos.map((casino) => <option key={casino.id} value={casino.id}>{casino.name}</option>)}</select></label>
           <label>Método de pago<select value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value)} required disabled={!methods.length}><option value="">{methods.length ? "Elegí un método" : "Sin métodos configurados"}</option>{methods.map((method) => <option key={method} value={method}>{method}</option>)}</select></label>
           <label>ID de jugador (obligatorio)<input name="playerId" type="text" autoComplete="off" value={playerId} onChange={(event) => setPlayerId(event.target.value)} maxLength="120" required placeholder="Ingresá el ID del jugador" /></label>
           <label>ID de transacción (obligatorio)<input name="transactionId" type="text" autoComplete="off" value={transactionId} onChange={(event) => setTransactionId(event.target.value)} maxLength="160" required placeholder="Ingresá el ID de transacción" /></label>
-          <label>ID de orden externa (obligatorio)<input name="externalOrderId" type="text" autoComplete="off" value={externalOrderId} onChange={(event) => setExternalOrderId(event.target.value)} maxLength="160" required placeholder="Ingresá el ID de la orden" /></label>
+          <label>ID de orden externa ({registrationType === "Manual" ? "opcional" : "obligatorio"})<input name="externalOrderId" type="text" autoComplete="off" value={externalOrderId} onChange={(event) => setExternalOrderId(event.target.value)} maxLength="160" required={registrationType === "Normal"} placeholder={registrationType === "Manual" ? "Podés dejarlo vacío para un registro manual" : "Ingresá el ID de la orden"} /></label>
+          {registrationType === "Manual" && <label className="pay-case-manual-reason">Motivo del registro manual (obligatorio)<textarea name="manualReason" value={manualReason} onChange={(event) => setManualReason(event.target.value)} maxLength="1000" required rows="3" placeholder="Explicá por qué este caso debe registrarse manualmente" /></label>}
           <label>Monto (obligatorio)<input name="amount" type="number" inputMode="decimal" min="0.01" step={currency === "PYG" ? "1" : "0.01"} value={amount} onChange={(event) => setAmount(event.target.value)} required placeholder="Ingresá el monto" /></label>
           <label>Moneda<select name="currency" value={currency} onChange={(event) => setCurrency(event.target.value)} required><option value="">Elegí una moneda</option><option value="ARS">ARS · Peso argentino</option><option value="PYG">PYG · Guaraní paraguayo</option></select></label>
           <label>Operación<select value={operation} onChange={(event) => setOperation(event.target.value)}><option>Depósito</option><option>Retiro</option></select></label>

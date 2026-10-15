@@ -102,6 +102,30 @@ function slugifyDocumentTitle(title) {
   return title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
+function htmlSoloLectura(html) {
+  return String(html || '')
+    .replace(/<a\b(?=[^>]*>)[^>]*>[\s\S]*?\b(?:editar|edit)\b[\s\S]*?<\/a\s*>/gi, '')
+    .replace(/<(button|input|textarea|select)\b[^>]*>[\s\S]*?\b(?:editar|edit)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<button\b[^>]*>(?:(?!<\/button>)[\s\S]){0,1000}?(?:guardar(?:\s+una)?\s+copia|imprimir(?:\s*\/\s*pdf)?|save\s+copy|print)(?:(?!<\/button>)[\s\S]){0,1000}?<\/button>/gi, '')
+    .replace(/\scontenteditable(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '')
+    .replace(/<\/head>/i, '<style>@media print{html,body{display:none!important}}</style></head>')
+}
+
+function documentoHtmlCompleto(content, title) {
+  const source = String(content || '')
+  if (/<html\b/i.test(source)) return source
+  const safeTitle = String(title || 'Documento').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title><style>body{margin:0;background:#100d13;color:#f5edf1;font-family:Arial,sans-serif;line-height:1.65}.orbital-import-wrap{max-width:1120px;margin:0 auto;padding:36px 28px 72px}h1,h2,h3{line-height:1.3}img{max-width:100%;height:auto;object-fit:contain}a{color:#ff748a}table{max-width:100%;border-collapse:collapse}td,th{padding:8px;border:1px solid #594452}@media(max-width:700px){.orbital-import-wrap{padding:22px 16px 48px}}</style></head><body><main class="orbital-import-wrap">${source}</main></body></html>`
+}
+
+function guardarHtmlImportado(categoryTarget, title, html) {
+  const safeFileKey = createHash('sha256').update(`${categoryTarget}:${title}:${html}`).digest('hex').slice(0, 24)
+  const importDirectory = path.resolve(process.cwd(), 'public', 'document-assets', 'importados')
+  fs.mkdirSync(importDirectory, { recursive: true })
+  fs.writeFileSync(path.join(importDirectory, `${safeFileKey}.html`), htmlSoloLectura(html))
+  return `/document-assets/importados/${safeFileKey}.html`
+}
+
 function limpiarCapturasSinReferencia(config) {
   const assetRoot = path.resolve(process.cwd(), 'public', 'document-assets')
   if (!fs.existsSync(assetRoot)) return
@@ -317,7 +341,7 @@ async function importarGuiaDesdeUrl(value) {
   const contentType = response.headers.get('content-type') || ''
   if (!/text\/(html|plain)|application\/(xhtml\+xml|pdf)/i.test(contentType)) throw new Error('El enlace no contiene una página o documento de texto compatible. Probá con una página pública o Google Docs compartido.')
   const declaredSize = Number(response.headers.get('content-length') || 0)
-  if (declaredSize > 8 * 1024 * 1024) throw new Error('La página supera el límite de 8 MB.')
+  if (declaredSize > 50 * 1024 * 1024) throw new Error('La página supera el límite de 50 MB.')
   if (/application\/pdf/i.test(contentType)) throw new Error('Este enlace apunta a un PDF. Para extraer su contenido, importá el archivo PDF desde el formulario.')
   const chunks = []
   let totalSize = 0
@@ -327,15 +351,15 @@ async function importarGuiaDesdeUrl(value) {
     const { done, value } = await reader.read()
     if (done) break
     totalSize += value.byteLength
-    if (totalSize > 8 * 1024 * 1024) {
+    if (totalSize > 50 * 1024 * 1024) {
       await reader.cancel()
-      throw new Error('La página supera el límite de 8 MB.')
+      throw new Error('La página supera el límite de 50 MB.')
     }
     chunks.push(Buffer.from(value))
   }
   const sourceText = Buffer.concat(chunks).toString('utf8')
   if (!sourceText.trim()) throw new Error('El documento no contiene información para importar.')
-  if (sourceText.length > 8 * 1024 * 1024) throw new Error('La página supera el límite de 8 MB.')
+  if (sourceText.length > 50 * 1024 * 1024) throw new Error('La página supera el límite de 50 MB.')
   if (/Accede a tu cuenta de Google|Debes acceder para ver este contenido|Sign in to continue/i.test(sourceText)) throw new Error('El documento requiere iniciar sesión para poder leerlo.')
 
   const title = sourceText.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1]
@@ -577,7 +601,10 @@ function comunicadosApi() {
         try {
           const input = await readRequestBody(request)
           const validAmount = Boolean(input && typeof input === 'object' && typeof input.amount === 'number' && Number.isFinite(input.amount) && input.amount > 0 && input.amount <= 100000000000000 && (input.currency === 'PYG' ? Number.isInteger(input.amount) : input.currency === 'ARS' && Math.abs(input.amount * 100 - Math.round(input.amount * 100)) < 1e-7))
-          if (!input || typeof input !== 'object' || !['Depósito', 'Retiro'].includes(input.operation) || !validAmount || typeof input.playerId !== 'string' || !input.playerId.trim() || input.playerId.length > 120 || typeof input.transactionId !== 'string' || !input.transactionId.trim() || input.transactionId.length > 160 || typeof input.externalOrderId !== 'string' || !input.externalOrderId.trim() || input.externalOrderId.length > 160) return sendJson(response, 400, { error: 'Completá casino, método de pago, IDs, monto, moneda válida y tipo de operación.' })
+          const registrationType = input?.registrationType || 'Normal'
+          const externalOrderId = typeof input?.externalOrderId === 'string' ? input.externalOrderId.trim() : ''
+          const manualReason = typeof input?.manualReason === 'string' ? input.manualReason.trim() : ''
+          if (!input || typeof input !== 'object' || !['Normal', 'Manual'].includes(registrationType) || !['Depósito', 'Retiro'].includes(input.operation) || !validAmount || typeof input.playerId !== 'string' || !input.playerId.trim() || input.playerId.length > 120 || typeof input.transactionId !== 'string' || !input.transactionId.trim() || input.transactionId.length > 160 || (input.externalOrderId !== undefined && typeof input.externalOrderId !== 'string') || externalOrderId.length > 160 || (registrationType === 'Normal' && !externalOrderId) || (registrationType === 'Manual' && (!manualReason || manualReason.length > 1000))) return sendJson(response, 400, { error: registrationType === 'Manual' ? 'Completá el motivo del registro manual, los demás datos obligatorios, el monto, la moneda y la operación.' : 'Completá casino, método de pago, IDs, monto, moneda válida y tipo de operación.' })
           const casinos = JSON.parse(fs.readFileSync(payCasinosFile, 'utf8'))
           const casino = casinos.find((item) => String(item.id) === String(input.casinoId) && item.status === 'Activo')
           if (!casino) return sendJson(response, 400, { error: 'Elegí un casino activo configurado por administración.' })
@@ -585,7 +612,7 @@ function comunicadosApi() {
           if (!paymentMethod) return sendJson(response, 400, { error: 'Elegí un método de pago habilitado para el casino.' })
           const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
           const agentName = String(actor.displayName || actor.name || actor.username || 'Agente').trim()
-          const record = { id: randomBytes(16).toString('hex'), casinoId: String(casino.id), casino: casino.name, paymentMethod, playerId: input.playerId.trim(), transactionId: input.transactionId.trim(), externalOrderId: input.externalOrderId.trim(), amount: input.amount, currency: input.currency, operation: input.operation, createdAt: new Date().toISOString(), agentName, author: agentName }
+          const record = { id: randomBytes(16).toString('hex'), casinoId: String(casino.id), casino: casino.name, paymentMethod, registrationType, manualReason: registrationType === 'Manual' ? manualReason : '', playerId: input.playerId.trim(), transactionId: input.transactionId.trim(), externalOrderId, amount: input.amount, currency: input.currency, operation: input.operation, createdAt: new Date().toISOString(), agentName, author: agentName }
           cases.push(record)
           fs.writeFileSync(payCasesFile, JSON.stringify(cases, null, 2))
           return sendJson(response, 201, record)
@@ -737,6 +764,65 @@ function comunicadosApi() {
           response.statusCode = 500
           response.setHeader('Content-Type', 'application/json')
           response.end(JSON.stringify({ error: 'No se pudieron importar los documentos.' }))
+        }
+      })
+
+      server.middlewares.use('/api/documentos/importar-individual', async (request, response, next) => {
+        if (request.method !== 'POST') return next()
+        if (currentSessionUser(request)?.role !== 'administrador') return sendJson(response, 403, { error: 'Acceso denegado.' })
+        try {
+          const chunks = []
+          for await (const chunk of request) chunks.push(chunk)
+          const input = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+          const storedConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'))
+          const config = input.config && Array.isArray(input.config.categories) ? input.config : storedConfig
+          const category = (config.categories || []).find((item) => item.target === input.categoryTarget)
+          const title = String(input.title || '').trim().slice(0, 200)
+          if (!category || !title) return sendJson(response, 400, { error: 'Indicá un nombre y una categoría válida.' })
+          let content
+          let sourceUrl = ''
+          if (input.url) {
+            const url = String(input.url).trim()
+            if (!/^https:\/\//i.test(url) || url.length > 4000) return sendJson(response, 400, { error: 'La URL debe comenzar con https://.' })
+            const imported = await importarTextoDocumento(url, title)
+            content = imported.content
+            sourceUrl = url
+          } else {
+            const raw = String(input.content || '')
+            if (!raw || Buffer.byteLength(raw, 'utf8') > 50 * 1024 * 1024) return sendJson(response, 400, { error: 'El archivo está vacío o supera 50 MB.' })
+            const isHtml = /\.html?$/i.test(String(input.fileName || '')) || /<\s*(?:html|body|h[1-6]|p|div|table)\b/i.test(raw)
+            if (isHtml) {
+              content = raw
+            } else {
+              content = `<p>${raw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')).join('</p><p>')}</p>`
+            }
+          }
+          content = documentoHtmlCompleto(content, title)
+          input.originalHtmlUrl = guardarHtmlImportado(category.target, title, content)
+          const document = { icon: '📄', title, url: sourceUrl, content, ...(input.originalHtmlUrl ? { originalHtmlUrl: input.originalHtmlUrl } : {}) }
+          category.documents = [...(category.documents || []), document]
+          fs.writeFileSync(configFile, JSON.stringify(config, null, 2))
+          response.setHeader('Content-Type', 'application/json')
+          response.end(JSON.stringify({ config, category: category.title, document }))
+        } catch (error) {
+          sendJson(response, 400, { error: error.message || 'No se pudo importar el documento.' })
+        }
+      })
+
+      server.middlewares.use('/api/documentos/guardar-html', async (request, response, next) => {
+        if (request.method !== 'POST') return next()
+        if (currentSessionUser(request)?.role !== 'administrador') return sendJson(response, 403, { error: 'Acceso denegado.' })
+        try {
+          const input = await readRequestBody(request)
+          const categoryTarget = String(input.categoryTarget || '')
+          const title = String(input.title || '').trim().slice(0, 200)
+          const html = String(input.html || '')
+          if (!categoryTarget || !title || !/<html\b/i.test(html)) return sendJson(response, 400, { error: 'El documento HTML no es válido.' })
+          if (Buffer.byteLength(html, 'utf8') > 50 * 1024 * 1024) return sendJson(response, 413, { error: 'El documento no puede superar 50 MB.' })
+          const originalHtmlUrl = guardarHtmlImportado(categoryTarget, title, html)
+          return sendJson(response, 200, { originalHtmlUrl })
+        } catch (error) {
+          return sendJson(response, 400, { error: error.message || 'No se pudo preparar el documento.' })
         }
       })
 
