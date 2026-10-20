@@ -1,5 +1,5 @@
 import "./App.css";
-import logo from "./assets/Logo.png";
+import logo from "./assets/OrbitalWallet.webp";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import DOMPurify from "dompurify";
 import { documentoAHtml } from "./documentContent";
@@ -351,14 +351,11 @@ function combinarConfiguracion(config) {
 }
 
 function getBrandStyles(content) {
-  const hasCustomColor = Boolean(content.backgroundColor);
   return {
-    "--page-background-color": content.backgroundColor || "transparent",
+    "--page-background-color": content.backgroundColor || "#05050a",
     "--page-background-image": content.backgroundImage
       ? `url(${JSON.stringify(content.backgroundImage)})`
-      : hasCustomColor
-        ? "none"
-        : "linear-gradient(135deg, #080808 0%, #151515 52%, #3b0008 100%)",
+      : "none",
   };
 }
 
@@ -503,7 +500,6 @@ function Header({ content, username = "" }) {
         </button>}
       </div>
       <div className="hero-content">
-        <svg className="logo-filter-defs" aria-hidden="true" focusable="false"><filter id="orbital-logo-cutout" colorInterpolationFilters="sRGB"><feColorMatrix type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 1 0 0 0 0" /></filter></svg>
         <img src={content.logoUrl || logo} alt="Orbital Wallet" className={`logo-image${content.logoUrl ? "" : " logo-image-orbital"}`} />
         <div>
           <p>{content.headerSubtitle}</p>
@@ -554,9 +550,9 @@ function findDocumentForProcess(content, process) {
   return null;
 }
 
-function WalletHtmlDocumentFrame({ html, title }) {
+function WalletHtmlDocumentFrame({ html, htmlUrl, title }) {
   const frameRef = useRef(null);
-  const cleanHtml = DOMPurify.sanitize(String(html || "")
+  const cleanHtml = htmlUrl ? undefined : DOMPurify.sanitize(String(html || "")
     .replace(/<a\b[^>]*>[\s\S]*?\b(?:editar|edit)\b[\s\S]*?<\/a\s*>/gi, "")
     .replace(/<button\b[^>]*>(?:(?!<\/button>)[\s\S]){0,1000}?(?:guardar(?:\s+una)?\s+copia|imprimir(?:\s*\/\s*pdf)?|save\s+copy|print)(?:(?!<\/button>)[\s\S]){0,1000}?<\/button>/gi, "")
     .replace(/\scontenteditable(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, ""), { WHOLE_DOCUMENT: true });
@@ -589,7 +585,7 @@ function WalletHtmlDocumentFrame({ html, title }) {
       frame._heightObserver.observe(frameDocument.documentElement);
     } catch { /* En caso de restricciones del navegador, el marco mantiene su altura mínima. */ }
   };
-  return <div className="integrated-document-original"><iframe ref={frameRef} title={`Documento original: ${title}`} srcDoc={cleanHtml} sandbox="allow-same-origin" onLoad={handleLoad} /></div>;
+  return <div className="integrated-document-original"><iframe ref={frameRef} title={`Documento original: ${title}`} {...(htmlUrl ? { src: htmlUrl } : { srcDoc: cleanHtml })} sandbox="allow-same-origin" onLoad={handleLoad} /></div>;
 }
 
 function DocumentPage({ document, category, content }) {
@@ -607,7 +603,7 @@ function DocumentPage({ document, category, content }) {
             </div>
           </header>
           {/<html\b/i.test(document.content || "") ? (
-            <WalletHtmlDocumentFrame html={document.content} title={document.title} />
+            <WalletHtmlDocumentFrame html={document.content} htmlUrl={document.originalHtmlUrl} title={document.title} />
           ) : document.originalHtmlUrl ? (
             <div className="integrated-document-original">
               <iframe
@@ -691,21 +687,21 @@ function CommunicationCard({ comunicado, onDelete }) {
   );
 }
 
-function CommunicationsPage({ comunicados, content, previousOnly = false }) {
-  const avisos = previousOnly ? comunicados.slice(1) : [comunicados[0]];
+function CommunicationsPage({ comunicados, content, previousOnly = false, project = "wallet" }) {
+  const avisos = previousOnly ? comunicados.slice(1) : comunicados.slice(0, 1).filter(Boolean);
 
   return (
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} />
       <main className="category-page">
-        <NavigationLinks backHref={previousOnly ? "/comunicados" : "/"} />
+        <NavigationLinks backHref={previousOnly ? (project === "pay" ? "/orbital-pay/comunicados" : "/comunicados") : (project === "pay" ? "/orbital-pay" : "/")} />
         <section className="category-detail">
           <div className="category-detail-icon">📢</div>
           <h1>{previousOnly ? "Comunicados anteriores" : "Comunicados"}</h1>
           <p>
             {previousOnly
               ? "Historial de avisos publicados anteriormente."
-              : "Aviso principal del equipo."}
+              : "Novedades y avisos importantes del equipo."}
           </p>
         </section>
 
@@ -726,7 +722,7 @@ function CommunicationsPage({ comunicados, content, previousOnly = false }) {
         </div>
 
         {!previousOnly && comunicados.length > 1 && (
-          <a className="category-link communication-action" href="/comunicados/anteriores">
+          <a className="category-link communication-action" href={project === "pay" ? "/orbital-pay/comunicados/anteriores" : "/comunicados/anteriores"}>
             Ver comunicados anteriores →
           </a>
         )}
@@ -868,7 +864,7 @@ function CasinoReportsPanel({ casino, onSaved }) {
   </form><h3>Historial</h3>{reports.length ? <div className="casino-report-history">{[...reports].reverse().map((report) => <article key={report.id}><header><strong>{report.title || `Reporte ${report.date}`}</strong><time>{report.date}</time></header><p>Cuenta: {report.account || "—"} · Movimientos: {report.counts?.movements || "—"} · Aprobados: {report.counts?.approved || "—"} · Sin retiro: {report.counts?.noWithdrawal || "—"} · No aprobados: {report.counts?.notApproved || "—"} · Ambiguos: {report.counts?.ambiguous || "—"}</p>{report.analysis && <p><strong>Análisis:</strong> {report.analysis}</p>}{report.manualReply && <p><strong>Respuesta:</strong> {report.manualReply}</p>}{report.attachment && <a href={report.attachment.url} target="_blank" rel="noreferrer">Descargar {report.attachment.name}</a>}<small>Registrado por {report.author || "equipo"} · {report.createdAt ? new Date(report.createdAt).toLocaleString("es-PY") : ""}</small></article>)}</div> : <p>Aún no hay reportes para este casino.</p>}</div>}</div>;
 }
 
-function OrbitalPayPage({ content }) {
+function OrbitalPayPage({ content, comunicados = [] }) {
   const [casinos, setCasinos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -888,6 +884,10 @@ function OrbitalPayPage({ content }) {
     <main className="pay-dashboard">
       <nav className="pay-nav"><a className="module-switch-link" href={isAdmin ? "/admin/pay" : "/modulos"}><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6 6m-6-6 6-6" /></svg></span><span>{isAdmin ? "Volver a administración de Pay" : "Volver al selector de módulos"}</span></a><span>ORBITAL PAY / CASINOS</span></nav>
       <PortalDirectory project="pay" />
+      <section className="frequent faq-section pay-communications-section">
+        <div className="section-heading"><h2>{content.communicationsTitle}</h2><p>{content.communicationsDescription}</p></div>
+        <div className="communications-list">{comunicados[0] ? <CommunicationCard comunicado={comunicados[0]} /> : <div className="empty-section"><span>📢</span><p>No hay comunicados disponibles para Orbital Pay.</p></div>}{comunicados.length > 1 && <a className="category-link communication-action" href="/orbital-pay/comunicados/anteriores">Ver comunicados anteriores →</a>}</div>
+      </section>
       <div className="pay-heading pay-casino-heading"><div className="pay-casino-heading-copy"><span className="pay-kicker">CENTRO DE OPERACIONES</span><h1>Gestión de casinos</h1><p>Consultá los establecimientos y sus reportes internos.</p></div><div className="pay-casino-actions">{isAdmin && <a className="pay-casino-action is-secondary" href="/admin/pay"><span className="pay-casino-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" /><path d="m19.4 15 .1.1 1.4 1.1-1.4 2.4-1.7-.7a8 8 0 0 1-1.5.9l-.3 1.8h-2.8l-.3-1.8a8 8 0 0 1-1.5-.9l-1.7.7-1.4-2.4 1.4-1.1a7 7 0 0 1 0-1.8l-1.4-1.1 1.4-2.4 1.7.7a8 8 0 0 1 1.5-.9l.3-1.8h2.8l.3 1.8a8 8 0 0 1 1.5.9l1.7-.7 1.4 2.4-1.4 1.1a7 7 0 0 1 0 1.7Z" /></svg></span><span><strong>Administrar</strong><small>Casinos y métodos</small></span><svg className="pay-casino-action-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a>}<a className="pay-casino-action is-primary" href={isAdmin ? "/admin/pay/casos" : "/orbital-pay/casos"}><span className="pay-casino-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /><rect x="3" y="3" width="18" height="18" rx="5" /></svg></span><span><strong>Registrar caso</strong><small>Nuevo depósito o retiro</small></span><svg className="pay-casino-action-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><a className="pay-casino-action" href={isAdmin ? "/admin/pay/registros" : "/orbital-pay/registros"}><span className="pay-casino-action-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12" /><circle cx="4" cy="6" r=".8" /><circle cx="4" cy="12" r=".8" /><circle cx="4" cy="18" r=".8" /></svg></span><span><strong>Ver registros</strong><small>Consultar actividad</small></span><svg className="pay-casino-action-arrow" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" /></svg></a><div className="pay-total"><span className="pay-total-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 10h.01M15 10h.01M9 14h.01M15 14h.01M10 21v-3h4v3" /></svg></span><strong>{String(casinos.length).padStart(2, "0")}</strong><span>CASINOS REGISTRADOS</span></div></div></div>
       {error && <p className="pay-notice" role="alert">{error}</p>}
       <section className="pay-panel pay-list-panel"><div className="pay-panel-title"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8M8 17h5" /></svg></span><div><small>DIRECTORIO</small><h2>Casinos registrados</h2></div></div>{loading ? <p>Cargando casinos…</p> : casinos.filter((casino) => casino.status === "Activo").length ? <div className="casino-list">{casinos.filter((casino) => casino.status === "Activo").map((casino) => <article className="casino-row casino-report-row" key={casino.id}><div className="casino-avatar">{casino.name.slice(0,1).toUpperCase()}</div><div className="casino-info"><strong>{casino.name}</strong><small>{casino.contact || "Sin contacto asignado"}</small></div><span className="casino-status is-active">{casino.status}</span><CasinoReportsPanel casino={casino} onSaved={updateCasino} /></article>)}</div> : <div className="casino-empty"><span><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h8M8 17h5" /></svg></span><strong>Aún no hay casinos activos</strong><p>Los casinos activos aparecerán aquí.</p></div>}</section>
@@ -961,7 +961,7 @@ function PasswordChangePage({ content, username }) {
   );
 }
 
-function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }) {
+function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent, project = "wallet" }) {
   const [sessionUsername, setSessionUsername] = useState(() => leerSesionAdmin());
   const [authenticated, setAuthenticated] = useState(() => Boolean(leerSesionAdmin()) && leerRolSesionAdmin() === ADMIN_ROLE);
   const [username, setUsername] = useState("");
@@ -1242,6 +1242,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     const publishedAt = new Date();
     const nuevoComunicado = {
       message: safeMessage,
+      project,
       publishedAt: publishedAt.toISOString(),
       date: publishedAt.toLocaleDateString("es-PY", { timeZone: "America/Asuncion" }),
       time: publishedAt.toLocaleTimeString("es-PY", { timeZone: "America/Asuncion", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }),
@@ -1407,7 +1408,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} admin username={sessionUsername} />
       <main className="admin-page">
-        {adminSection && <NavigationLinks admin backHref="/admin/wallet" />}
+        {adminSection && <NavigationLinks admin backHref={project === "pay" ? "/admin/pay/comunicados" : "/admin/wallet"} />}
         {!adminSection ? (
           <section className="admin-menu">
             <nav className="pay-nav wallet-module-nav"><a className="module-switch-link" href="/admin"><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6 6m-6-6 6-6" /></svg></span><span>Volver al selector de módulos</span></a><span>ADMINISTRACIÓN / ORBITAL WALLET</span></nav>
@@ -1432,12 +1433,12 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
                   <span className="admin-menu-panel-count">{String(comunicados.length).padStart(2, "0")}</span>
                 </div>
                 <div className="admin-menu-panel-links">
-                  <a href="/admin/nuevo">
+            <a href={project === "pay" ? "/admin/pay/comunicados/nuevo" : "/admin/nuevo"}>
                     <span className="admin-menu-action-icon">＋</span>
                     <span><strong>Nuevo comunicado</strong><small>Publicar un aviso</small></span>
                     <span className="admin-menu-arrow">↗</span>
                   </a>
-                  <a href="/admin/historial">
+                  <a href={project === "pay" ? "/admin/pay/comunicados/historial" : "/admin/historial"}>
                     <span className="admin-menu-action-icon">↺</span>
                     <span><strong>Historial</strong><small>Ver o eliminar comunicados</small></span>
                     <span className="admin-menu-arrow">↗</span>
@@ -1472,6 +1473,11 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent }
             <p className="communication-timestamp-note">La fecha y hora exactas de Paraguay se registran automáticamente al publicar.</p>
             <button type="submit">Publicar comunicado</button>
           </form>
+        </section>}
+
+        {adminSection === "comunicados" && <section className="admin-menu admin-comms-control">
+          <div className="admin-menu-header"><div><span className="admin-menu-kicker">CENTRO DE CONTROL · ORBITAL PAY</span><h1>Comunicados</h1><p>Publicá avisos para el equipo de Orbital Pay y consultá su historial.</p></div><span className="admin-menu-status"><span /> {comunicados.length} PUBLICADOS</span></div>
+          <div className="admin-menu-panel-links"><a href="/admin/pay/comunicados/nuevo"><span className="admin-menu-action-icon">＋</span><span><strong>Nuevo comunicado</strong><small>Publicar un aviso para Orbital Pay</small></span><span className="admin-menu-arrow">↗</span></a><a href="/admin/pay/comunicados/historial"><span className="admin-menu-action-icon">↺</span><span><strong>Historial</strong><small>Ver o eliminar comunicados de Pay</small></span><span className="admin-menu-arrow">↗</span></a></div>
         </section>}
 
         {adminSection === "portales" && <PortalDirectory manage />}
@@ -1803,6 +1809,18 @@ function App() {
       localStorage.setItem(COMUNICADOS_KEY, JSON.stringify(items));
     }
   };
+  const comunicadosWallet = comunicados.filter((item) => item.project !== "pay");
+  const comunicadosPay = comunicados.filter((item) => item.project === "pay");
+  const guardarComunicadosProyecto = async (project, nuevos) => {
+    const otros = comunicados.filter((item) => project === "pay" ? item.project !== "pay" : item.project === "pay");
+    const merged = project === "pay" ? [...otros, ...nuevos] : [...nuevos, ...otros];
+    try {
+      await guardarComunicados(merged);
+      setComunicados(merged);
+    } catch (error) {
+      window.alert(error.message || "No se pudieron guardar los comunicados compartidos.");
+    }
+  };
   useSharedPolling(() => refreshComunicados().catch(() => null));
 
   useEffect(() => {
@@ -1866,15 +1884,6 @@ function App() {
 
   const registrarYActualizar = (titulo) => {
     setConsultas(registrarConsulta(titulo));
-  };
-
-  const guardarYActualizarComunicados = async (nuevosComunicados) => {
-    try {
-      await guardarComunicados(nuevosComunicados);
-      setComunicados(nuevosComunicados);
-    } catch (error) {
-      window.alert(error.message || "No se pudieron guardar los comunicados compartidos.");
-    }
   };
 
   const guardarYActualizarContenido = async (nuevoContenido) => {
@@ -1949,7 +1958,7 @@ function App() {
   }
 
   if (ruta === "admin") {
-    if (!leerSesionAdmin()) return <AdminPage key={adminContentRevision} adminSection="" comunicados={comunicados} content={content} onSave={guardarYActualizarComunicados} onSaveContent={guardarYActualizarContenido} />;
+    if (!leerSesionAdmin()) return <AdminPage key={adminContentRevision} adminSection="" comunicados={comunicadosWallet} content={content} onSave={(items) => guardarComunicadosProyecto("wallet", items)} onSaveContent={guardarYActualizarContenido} />;
     if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
     return <AdminModulePicker content={content} />;
   }
@@ -1957,14 +1966,21 @@ function App() {
   if (ruta === "admin/wallet") {
     if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
     if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
-    return <AdminPage key={adminContentRevision} adminSection="" comunicados={comunicados} content={content} onSave={guardarYActualizarComunicados} onSaveContent={guardarYActualizarContenido} />;
+    return <AdminPage key={adminContentRevision} adminSection="" comunicados={comunicadosWallet} content={content} onSave={(items) => guardarComunicadosProyecto("wallet", items)} onSaveContent={guardarYActualizarContenido} />;
   }
 
   if (["nuevo", "historial", "password", "contenido", "portales"].includes(adminSection)) {
     if (leerSesionAdmin() && leerRolSesionAdmin() !== ADMIN_ROLE) {
       return <AdminAccessRedirect />;
     }
-    return <AdminPage key={adminContentRevision} adminSection={adminSection} comunicados={comunicados} content={content} onSave={guardarYActualizarComunicados} onSaveContent={guardarYActualizarContenido} />;
+    return <AdminPage key={adminContentRevision} adminSection={adminSection} comunicados={comunicadosWallet} content={content} onSave={(items) => guardarComunicadosProyecto("wallet", items)} onSaveContent={guardarYActualizarContenido} />;
+  }
+
+  if (["admin/pay/comunicados", "admin/pay/comunicados/nuevo", "admin/pay/comunicados/historial"].includes(ruta)) {
+    if (!usuarioSesion) return <AdminAccessRedirect target="/admin" />;
+    if (leerRolSesionAdmin() !== ADMIN_ROLE) return <AdminAccessRedirect />;
+    const section = ruta.endsWith("/nuevo") ? "nuevo" : ruta.endsWith("/historial") ? "historial" : "comunicados";
+    return <AdminPage key={`${adminContentRevision}-pay-comms`} adminSection={section} project="pay" comunicados={comunicadosPay} content={content} onSave={(items) => guardarComunicadosProyecto("pay", items)} onSaveContent={guardarYActualizarContenido} />;
   }
 
   if (ruta === "admin/pay/registros") {
@@ -2035,7 +2051,9 @@ function App() {
   }
 
   if (ruta === "modulos") return <ModulePicker content={content} />;
-  if (ruta === "orbital-pay") return <OrbitalPayPage content={content} />;
+  if (ruta === "orbital-pay") return <OrbitalPayPage content={content} comunicados={comunicadosPay} />;
+  if (ruta === "orbital-pay/comunicados") return <CommunicationsPage comunicados={comunicadosPay} content={content} project="pay" />;
+  if (ruta === "orbital-pay/comunicados/anteriores") return <CommunicationsPage comunicados={comunicadosPay} content={content} previousOnly project="pay" />;
   if (ruta === "orbital-pay/casos") return <PayCasesPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin={false} />;
   if (ruta === "orbital-pay/registros") return <PayCaseRecordsPage content={content} getBrandStyles={getBrandStyles} Header={Header} isAdmin={false} currentUsername={usuarioSesion} />;
   if (ruta.startsWith("orbital-pay/guia/")) {
@@ -2058,11 +2076,11 @@ function App() {
   }
 
   if (ruta === "comunicados") {
-    return <CommunicationsPage comunicados={comunicados} content={content} />;
+    return <CommunicationsPage comunicados={comunicadosWallet} content={content} />;
   }
 
   if (ruta === "comunicados/anteriores") {
-    return <CommunicationsPage comunicados={comunicados} content={content} previousOnly />;
+    return <CommunicationsPage comunicados={comunicadosWallet} content={content} previousOnly />;
   }
 
   const categoryContent = content.categories.find((categoria) => categoria.target === ruta);
@@ -2094,7 +2112,7 @@ function App() {
           </div>
 
           <div className="communications-list">
-            <CommunicationCard comunicado={comunicados[0]} />
+            {comunicadosWallet[0] ? <CommunicationCard comunicado={comunicadosWallet[0]} /> : <div className="empty-section"><span>📢</span><p>No hay comunicados disponibles.</p></div>}
             <a className="category-link communication-action" href="/comunicados/anteriores">
               Ver comunicados anteriores →
             </a>

@@ -148,13 +148,13 @@ body {
   display: block;
 }
 
-.logo-filter-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .logo-image-orbital {
-  width: min(660px, 92vw);
-  aspect-ratio: 6.2 / 1;
-  object-fit: cover;
-  object-position: center 42%;
-  filter: url(#orbital-logo-cutout);
+  width: min(1000px, 92vw);
+  height: auto;
+  aspect-ratio: auto;
+  object-fit: contain;
+  object-position: center;
+  filter: none;
   background: transparent;
 }
 
@@ -2904,6 +2904,7 @@ main > .faq-section:first-child {
 .admin-studio-saving { position: fixed; right: 24px; bottom: 24px; z-index: 20; padding: 12px 16px; border: 1px solid #704054; border-radius: 10px; background: #241721; color: #f6edf2; box-shadow: 0 8px 24px #0008; font-size: 13px; }
 .pay-app { background: radial-gradient(ellipse at 80% 0%, rgba(75,15,27,.35), transparent 45%), #0b0e14; }
 .pay-dashboard { max-width: 1180px; padding-top: 20px; }
+.pay-dashboard > .pay-communications-section { margin: 56px 0 64px; }
 .pay-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 38px; color: #808b9b; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
 .pay-nav span { margin-left: auto; }
 .pay-nav a { color: #cbd5e1; font-size: 13px; letter-spacing: 0; text-decoration: none; }
@@ -5205,4 +5206,66 @@ footer small {
 @media (max-width: 700px) {
   .app .pay-guide-reader-content { padding: 14px; }
   .app .pay-guide-reader-content .topic { padding: 16px; }
+}
+
+/* Fondo ambiental inspirado en la identidad pública de Orbital Wallet. */
+:root {
+  background: #05050a;
+}
+
+body {
+  background: #05050a;
+}
+
+.app {
+  --orbital-glow-primary: rgba(234, 75, 58, .19);
+  --orbital-glow-secondary: rgba(224, 61, 109, .12);
+  --orbital-star: rgba(245, 245, 247, .13);
+  background-color: var(--page-background-color, #05050a);
+  background-image:
+    var(--page-background-image, none),
+    radial-gradient(ellipse 58rem 42rem at 8% -8%, var(--orbital-glow-primary), transparent 72%),
+    radial-gradient(ellipse 48rem 38rem at 100% 28%, var(--orbital-glow-secondary), transparent 75%),
+    radial-gradient(circle, var(--orbital-star) .7px, transparent .95px);
+  background-size: cover, auto, auto, 30px 30px;
+  background-position: center, left top, right top, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-attachment: fixed;
+}
+
+.app.pay-app {
+  --orbital-glow-primary: rgba(224, 61, 109, .18);
+  --orbital-glow-secondary: rgba(234, 75, 58, .12);
+  --orbital-star: rgba(255, 221, 225, .14);
+  background-color: var(--page-background-color, #05050a);
+  background-image:
+    var(--page-background-image, none),
+    radial-gradient(ellipse 58rem 42rem at 8% -8%, var(--orbital-glow-primary), transparent 72%),
+    radial-gradient(ellipse 48rem 38rem at 100% 28%, var(--orbital-glow-secondary), transparent 75%),
+    radial-gradient(circle, var(--orbital-star) .7px, transparent .95px);
+  background-size: cover, auto, auto, 30px 30px;
+  background-position: center, left top, right top, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-attachment: fixed;
+}
+
+:root[data-theme="light"] {
+  background: #f4f1ed;
+}
+
+:root[data-theme="light"] body {
+  background: #f4f1ed;
+}
+
+:root[data-theme="light"] .app {
+  background-color: #f4f1ed !important;
+  background-image:
+    var(--page-background-image, none),
+    radial-gradient(ellipse 58rem 42rem at 8% -8%, rgba(234, 75, 58, .10), transparent 72%),
+    radial-gradient(ellipse 48rem 38rem at 100% 28%, rgba(224, 61, 109, .07), transparent 75%),
+    radial-gradient(circle, rgba(23, 43, 77, .10) .7px, transparent .95px) !important;
+  background-size: cover, auto, auto, 30px 30px !important;
+  background-position: center, left top, right top, 0 0 !important;
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat !important;
+  background-attachment: fixed !important;
 }
