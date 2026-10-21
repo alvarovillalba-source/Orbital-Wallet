@@ -1,0 +1,11 @@
+.git
+.github
+.vscode
+node_modules
+dist
+*.log
+*.local
+.env
+.env.*
+!.env.example
+Orbital-Wallet-TODO.zip.part-*

@@ -52,7 +52,11 @@ export default function PayOptionsPage({ content, getBrandStyles, Header }) {
       setCasinos(next); if (casinoId === String(casino.id)) reset(); setNotice("Casino eliminado de las opciones.");
     } catch (error) { setNotice(error.message); }
   };
-  const totalsByCurrency = ["ARS", "PYG"].map((currency) => ({ currency, total: payCases.filter((item) => item.currency === currency).reduce((sum, item) => sum + (Number(item.amount) || 0), 0) }));
+  const currenciesInUse = [...new Set([
+    ...casinos.map((casino) => casino.currency),
+    ...payCases.map((item) => item.currency),
+  ].filter((code) => PAY_CURRENCY_CODES.includes(code)))].sort();
+  const totalsByCurrency = currenciesInUse.map((currency) => ({ currency, total: payCases.filter((item) => item.currency === currency).reduce((sum, item) => sum + (Number(item.amount) || 0), 0) }));
 
   return <div className="app pay-app" style={getBrandStyles(content)}><Header content={{ ...content, headerSubtitle: "Opciones de casino y pago · Orbital Pay" }} />
     <main className="pay-dashboard pay-cases-page">

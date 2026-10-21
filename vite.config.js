@@ -454,6 +454,11 @@ function comunicadosApi() {
   return {
     name: 'comunicados-api',
     configureServer(server) {
+      server.middlewares.use('/api/health', (request, response, next) => {
+        if (request.method !== 'GET') return next()
+        return sendJson(response, 200, { status: 'ok' })
+      })
+
       server.middlewares.use('/api/config', (request, response, next) => {
         if (request.method === 'GET') {
           const configText = fs.readFileSync(configFile, 'utf8')
@@ -1184,6 +1189,10 @@ function comunicadosApi() {
           return sendJson(response, 400, { ok: false, error: 'No se pudieron guardar los usuarios.' })
         }
       })
+    },
+    // Keep API routes available in the single-instance Compose deployment and local build preview.
+    configurePreviewServer(server) {
+      comunicadosApi().configureServer(server)
     },
   }
 }
