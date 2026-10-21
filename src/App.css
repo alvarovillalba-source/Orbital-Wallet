@@ -5269,3 +5269,214 @@ body {
   background-repeat: no-repeat, no-repeat, no-repeat, repeat !important;
   background-attachment: fixed !important;
 }
+
+/* Content editor: clearer hierarchy and steadier spacing across sections. */
+.admin-content-form {
+  padding: clamp(20px, 3vw, 32px);
+}
+
+.admin-content-form > .admin-section-title {
+  margin-bottom: 8px;
+}
+
+.admin-content-form > .admin-section-title h2 {
+  font-size: clamp(21px, 2.2vw, 27px);
+  line-height: 1.2;
+  letter-spacing: -.02em;
+}
+
+.admin-content-form > .admin-section-title p {
+  max-width: 62ch;
+  margin-bottom: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.admin-content-form .visual-content-editor {
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.admin-content-form .admin-content-screen-head {
+  margin-bottom: 2px;
+}
+
+.admin-content-form .admin-content-screen-head button {
+  min-height: 40px;
+  padding: 10px 14px;
+}
+
+.admin-content-form .admin-content-screen-title {
+  padding: 14px 2px 6px;
+}
+
+.admin-content-form .admin-content-screen-title h3 {
+  margin-top: 8px;
+  font-size: clamp(23px, 2.6vw, 30px);
+  line-height: 1.18;
+  letter-spacing: -.02em;
+}
+
+.admin-content-form .admin-content-screen-title p {
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.admin-content-form .admin-editor-savebar {
+  min-height: 58px;
+  padding: 10px 14px;
+}
+
+.admin-content-form .admin-editor-savebar span {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-content-form .admin-editor-savebar button {
+  min-height: 40px;
+  padding: 10px 16px;
+}
+
+.admin-content-form .admin-editor-section {
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.admin-content-form .admin-editor-section > summary {
+  min-height: 60px;
+  padding: 13px 16px;
+}
+
+.admin-content-form .admin-editor-section > summary > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-content-form .admin-editor-section > summary strong {
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.admin-content-form .admin-editor-section > summary small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.admin-content-form .admin-editor-section-count {
+  padding: 5px 9px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.admin-content-form .admin-editor-section-body {
+  gap: 10px;
+  padding: 12px;
+}
+
+.admin-content-form .editor-category-block {
+  border-radius: 9px;
+  transition: border-color .18s ease, background .18s ease;
+}
+
+.admin-content-form .editor-category-summary {
+  min-height: 48px;
+  padding: 10px 14px;
+  gap: 10px;
+}
+
+.admin-content-form .editor-category-summary strong {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.admin-content-form .editor-category-summary span {
+  margin-left: auto;
+  padding: 4px 8px;
+  border: 1px solid #3b4657;
+  border-radius: 99px;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.admin-content-form .editor-category-summary::after {
+  min-width: 18px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.admin-content-form .editor-category-content {
+  gap: 14px;
+  padding: 16px;
+}
+
+.admin-content-form .editor-category-heading h4 {
+  font-size: 14px;
+}
+
+.admin-content-form .category-documents-editor {
+  gap: 12px;
+  padding: 14px;
+}
+
+.admin-content-form .category-documents-heading {
+  padding-bottom: 10px;
+}
+
+.admin-content-form .category-documents-heading small {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+:root:not([data-theme="light"]) .admin-content-form .editor-category-summary span {
+  border-color: #3b4657;
+  background: #111720;
+  color: #b9c5d5;
+}
+
+:root[data-theme="light"] .admin-content-form .editor-category-summary span {
+  border-color: #e2e8f0;
+  background: #f5f7fa;
+}
+
+@media (max-width: 700px) {
+  .admin-content-form {
+    padding: 18px 14px;
+  }
+
+  .admin-content-form .admin-content-screen-title {
+    padding-top: 10px;
+  }
+
+  .admin-content-form .admin-content-screen-head {
+    gap: 9px;
+  }
+
+  .admin-content-form .admin-editor-section-body {
+    padding: 9px;
+  }
+
+  .admin-content-form .editor-category-summary {
+    align-items: center;
+    padding: 10px 11px;
+  }
+
+  .admin-content-form .editor-category-summary strong {
+    flex: 1 1 100%;
+  }
+
+  .admin-content-form .editor-category-summary span {
+    margin-left: 0;
+  }
+
+  .admin-content-form .editor-category-content {
+    padding: 12px;
+  }
+
+  .admin-content-form .category-documents-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

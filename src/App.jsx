@@ -580,6 +580,23 @@ function WalletHtmlDocumentFrame({ html, htmlUrl, title }) {
       if (!frameDocument) return;
       const resize = () => { frame.style.height = `${Math.max(frameDocument.documentElement.scrollHeight, frameDocument.body?.scrollHeight || 0, window.innerHeight * 0.85)}px`; };
       resize();
+      if (frame._hashNavigation) frameDocument.removeEventListener("click", frame._hashNavigation, true);
+      frame._hashNavigation = (event) => {
+        const link = event.target.closest?.('a[href^="#"]');
+        if (!link) return;
+        const id = decodeURIComponent((link.getAttribute("href") || "").slice(1));
+        const target = id && frameDocument.getElementById(id);
+        if (!target) return;
+        event.preventDefault();
+        frameDocument.querySelectorAll(".sidebar nav a, aside nav a").forEach((item) => {
+          item.classList.toggle("active", item === link);
+          if (item === link) item.setAttribute("aria-current", "location");
+          else item.removeAttribute("aria-current");
+        });
+        const top = frame.getBoundingClientRect().top + window.scrollY + target.getBoundingClientRect().top;
+        window.scrollTo({ top, behavior: "smooth" });
+      };
+      frameDocument.addEventListener("click", frame._hashNavigation, true);
       frame._heightObserver?.disconnect();
       frame._heightObserver = new ResizeObserver(resize);
       frame._heightObserver.observe(frameDocument.documentElement);
@@ -1408,7 +1425,7 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent, 
     <div className="app" style={getBrandStyles(content)}>
       <Header content={content} admin username={sessionUsername} />
       <main className="admin-page">
-        {adminSection && <NavigationLinks admin backHref={project === "pay" ? "/admin/pay/comunicados" : "/admin/wallet"} />}
+        {adminSection && <NavigationLinks admin backHref={project === "pay" ? "/admin/pay" : "/admin/wallet"} />}
         {!adminSection ? (
           <section className="admin-menu">
             <nav className="pay-nav wallet-module-nav"><a className="module-switch-link" href="/admin"><span className="navigation-link-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 12H5m0 0 6 6m-6-6 6-6" /></svg></span><span>Volver al selector de módulos</span></a><span>ADMINISTRACIÓN / ORBITAL WALLET</span></nav>
@@ -1445,16 +1462,9 @@ function AdminPage({ adminSection, comunicados, content, onSave, onSaveContent, 
                   </a>
                 </div>
               </section>
-              <a className="admin-menu-tile admin-users-tile" href="/admin/password">
-                <span className="admin-menu-tile-icon">🔐</span>
-                <span className="admin-menu-tile-index">02</span>
-                <strong>Usuarios y acceso</strong>
-                <small>Gestionar usuarios y contraseñas</small>
-                <span className="admin-menu-tile-link">Gestionar acceso <b>↗</b></span>
-              </a>
               <a className="admin-menu-tile admin-content-tile" href="/admin/contenido">
                 <span className="admin-menu-tile-icon">✎</span>
-                <span className="admin-menu-tile-index">03</span>
+                <span className="admin-menu-tile-index">02</span>
                 <strong>Editar contenido</strong>
                 <small>Modificar textos, enlaces y categorías</small>
                 <span className="admin-menu-tile-link">Abrir editor <b>↗</b></span>

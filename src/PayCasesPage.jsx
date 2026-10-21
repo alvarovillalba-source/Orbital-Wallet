@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSharedPolling } from "./useSharedPolling";
+import { PAY_CURRENCIES, PAY_CURRENCY_CODES, PAY_CURRENCIES_WITHOUT_DECIMALS } from "./payCurrencies";
 
 function monedaPorCasino(casino) {
+  if (PAY_CURRENCY_CODES.includes(casino?.currency)) return casino.currency;
   const nombre = String(casino?.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (nombre.includes("paraguay")) return "PYG";
   if (nombre.includes("argentina")) return "ARS";
@@ -27,6 +29,7 @@ export default function PayCasesPage({ content, getBrandStyles, Header, isAdmin 
   const activeCasinos = useMemo(() => casinos.filter((casino) => casino.status === "Activo"), [casinos]);
   const selectedCasino = activeCasinos.find((casino) => String(casino.id) === casinoId);
   const methods = selectedCasino?.paymentMethods || [];
+  const currencyUsesDecimals = !PAY_CURRENCIES_WITHOUT_DECIMALS.includes(currency);
 
   const refreshCasinos = async () => {
     const response = await fetch("/api/pay/casinos", { cache: "no-cache" });
@@ -61,8 +64,8 @@ export default function PayCasesPage({ content, getBrandStyles, Header, isAdmin 
       setMessageError(true);
       return;
     }
-    if (currency === "PYG" && !Number.isInteger(numericAmount)) {
-      setMessage("El guaraní (PYG) no admite decimales. Ingresá un monto entero o seleccioná ARS.");
+    if (!currencyUsesDecimals && !Number.isInteger(numericAmount)) {
+      setMessage(`La moneda ${currency} no admite decimales. Ingresá un monto entero.`);
       setMessageError(true);
       return;
     }
@@ -72,7 +75,7 @@ export default function PayCasesPage({ content, getBrandStyles, Header, isAdmin 
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "No se pudo guardar el caso.");
       const time = new Intl.DateTimeFormat("es-PY", { dateStyle: "short", timeStyle: "medium", timeZone: "America/Asuncion" }).format(new Date(result.createdAt));
-      setPlayerId(""); setTransactionId(""); setExternalOrderId(""); setManualReason(""); setRegistrationType("Normal"); setAmount(""); setCurrency("");
+      setPlayerId(""); setTransactionId(""); setExternalOrderId(""); setManualReason(""); setRegistrationType("Normal"); setAmount(""); setCurrency(monedaPorCasino(selectedCasino));
       setMessage(`Caso registrado el ${time} por ${result.agentName || result.author || "Agente"}.`);
     } catch (error) { setMessage(error.message); setMessageError(true); }
     finally { setSaving(false); }
@@ -92,8 +95,8 @@ export default function PayCasesPage({ content, getBrandStyles, Header, isAdmin 
           <label>ID de transacción (obligatorio)<input name="transactionId" type="text" autoComplete="off" value={transactionId} onChange={(event) => setTransactionId(event.target.value)} maxLength="160" required placeholder="Ingresá el ID de transacción" /></label>
           <label>ID de orden externa ({registrationType === "Manual" ? "opcional" : "obligatorio"})<input name="externalOrderId" type="text" autoComplete="off" value={externalOrderId} onChange={(event) => setExternalOrderId(event.target.value)} maxLength="160" required={registrationType === "Normal"} placeholder={registrationType === "Manual" ? "Podés dejarlo vacío para un registro manual" : "Ingresá el ID de la orden"} /></label>
           {registrationType === "Manual" && <label className="pay-case-manual-reason">Motivo del registro manual (obligatorio)<textarea name="manualReason" value={manualReason} onChange={(event) => setManualReason(event.target.value)} maxLength="1000" required rows="3" placeholder="Explicá por qué este caso debe registrarse manualmente" /></label>}
-          <label>Monto (obligatorio)<input name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required placeholder="Ingresá el monto" /></label>
-          <label>Moneda<select name="currency" value={currency} onChange={(event) => setCurrency(event.target.value)} required disabled={Boolean(monedaPorCasino(selectedCasino))}><option value="">Elegí una moneda</option><option value="ARS">ARS · Peso argentino</option><option value="PYG">PYG · Guaraní paraguayo</option></select>{monedaPorCasino(selectedCasino) && <small>Moneda asignada automáticamente según el país del casino.</small>}</label>
+          <label>Monto (obligatorio)<input name="amount" type="number" inputMode="decimal" min={currencyUsesDecimals ? "0.01" : "1"} step={currencyUsesDecimals ? "0.01" : "1"} value={amount} onChange={(event) => setAmount(event.target.value)} required placeholder="Ingresá el monto" /></label>
+          <label>Moneda<select name="currency" value={currency} onChange={(event) => setCurrency(event.target.value)} required disabled={Boolean(monedaPorCasino(selectedCasino))}><option value="">Elegí una moneda</option>{PAY_CURRENCIES.map(({ code, name }) => <option key={code} value={code}>{code} · {name}</option>)}</select>{monedaPorCasino(selectedCasino) && <small>Moneda predeterminada asignada por administración.</small>}</label>
           <label>Operación<select value={operation} onChange={(event) => setOperation(event.target.value)}><option>Depósito</option><option>Retiro</option></select></label>
           {!loading && !activeCasinos.length && <p className="pay-case-empty">Todavía no hay casinos activos. Pedile a un administrador que configure casinos y métodos de pago.</p>}
           {selectedCasino && !methods.length && <p className="pay-case-empty">Este casino aún no tiene métodos de pago configurados por administración.</p>}

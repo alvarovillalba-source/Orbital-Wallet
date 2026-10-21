@@ -6,6 +6,7 @@ import { isIP } from 'node:net'
 import fs from 'node:fs'
 import path from 'node:path'
 import TurndownService from 'turndown'
+import { PAY_CURRENCY_CODES, PAY_CURRENCIES_WITHOUT_DECIMALS } from './src/payCurrencies.js'
 
 const comunicadosFile = path.resolve(process.cwd(), 'data/comunicados.json')
 const configFile = path.resolve(process.cwd(), 'data/site-config.json')
@@ -104,11 +105,17 @@ function slugifyDocumentTitle(title) {
   return title.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
-function monedaSegunCasino(name) {
+function monedaSegunCasino(casino) {
+  if (PAY_CURRENCY_CODES.includes(casino?.currency)) return casino.currency
+  const name = typeof casino === 'string' ? casino : casino?.name
   const normalized = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   if (normalized.includes('paraguay')) return 'PYG'
   if (normalized.includes('argentina')) return 'ARS'
   return ''
+}
+
+function montoUsaDecimales(currency) {
+  return !PAY_CURRENCIES_WITHOUT_DECIMALS.includes(currency)
 }
 
 function htmlSoloLectura(html) {
@@ -593,7 +600,7 @@ function comunicadosApi() {
         if (currentSessionUser(request)?.role !== 'administrador') return sendJson(response, 403, { error: 'Solo administración puede modificar casinos y métodos de pago.' })
         try {
           const casinos = await readRequestBody(request)
-          if (!Array.isArray(casinos) || casinos.length > 500 || casinos.some((casino) => !casino || (typeof casino.id !== 'string' && typeof casino.id !== 'number') || typeof casino.name !== 'string' || !casino.name.trim() || casino.name.length > 200 || !['Activo', 'En revisión', 'Inactivo'].includes(casino.status) || !Array.isArray(casino.paymentMethods || []) || (casino.paymentMethods || []).length > 50 || (casino.paymentMethods || []).some((method) => typeof method !== 'string' || !method.trim() || method.length > 100))) return sendJson(response, 400, { error: 'Revisá los datos de casinos y métodos de pago.' })
+          if (!Array.isArray(casinos) || casinos.length > 500 || casinos.some((casino) => !casino || (typeof casino.id !== 'string' && typeof casino.id !== 'number') || typeof casino.name !== 'string' || !casino.name.trim() || casino.name.length > 200 || !['Activo', 'En revisión', 'Inactivo'].includes(casino.status) || (casino.currency != null && !PAY_CURRENCY_CODES.includes(casino.currency)) || !Array.isArray(casino.paymentMethods || []) || (casino.paymentMethods || []).length > 50 || (casino.paymentMethods || []).some((method) => typeof method !== 'string' || !method.trim() || method.length > 100))) return sendJson(response, 400, { error: 'Revisá los datos de casinos y métodos de pago.' })
           fs.writeFileSync(payCasinosFile, JSON.stringify(casinos, null, 2))
           return sendJson(response, 200, { ok: true })
         } catch {
@@ -653,8 +660,8 @@ function comunicadosApi() {
           const casino = casinos.find((item) => String(item.id) === String(change.casinoId) && item.status === 'Activo')
           const paymentMethod = casino?.paymentMethods?.find((item) => item === change.paymentMethod)
           const amount = Number(change.amount)
-          const currency = monedaSegunCasino(casino?.name) || change.currency
-          const validAmount = Number.isFinite(amount) && amount > 0 && amount <= 100000000000000 && (currency === 'PYG' ? Number.isInteger(amount) : currency === 'ARS' && Math.abs(amount * 100 - Math.round(amount * 100)) < 1e-7)
+          const currency = monedaSegunCasino(casino) || change.currency
+          const validAmount = PAY_CURRENCY_CODES.includes(currency) && Number.isFinite(amount) && amount > 0 && amount <= 100000000000000 && (montoUsaDecimales(currency) ? Math.abs(amount * 100 - Math.round(amount * 100)) < 1e-7 : Number.isInteger(amount))
           const registrationType = change.registrationType || 'Normal'
           const manualReason = typeof change.manualReason === 'string' ? change.manualReason.trim() : ''
           const externalOrderId = typeof change.externalOrderId === 'string' ? change.externalOrderId.trim() : ''
@@ -753,9 +760,9 @@ function comunicadosApi() {
           if (!casino) return sendJson(response, 400, { error: 'Elegí un casino activo configurado por administración.' })
           const paymentMethod = (casino.paymentMethods || []).find((method) => method === input.paymentMethod)
           if (!paymentMethod) return sendJson(response, 400, { error: 'Elegí un método de pago habilitado para el casino.' })
-          const currency = monedaSegunCasino(casino.name) || input.currency
-          if (!['ARS', 'PYG'].includes(currency)) return sendJson(response, 400, { error: 'Elegí una moneda válida: ARS o PYG.' })
-          if ((currency === 'PYG' && !Number.isInteger(input.amount)) || (currency === 'ARS' && Math.abs(input.amount * 100 - Math.round(input.amount * 100)) >= 1e-7)) return sendJson(response, 400, { error: currency === 'PYG' ? 'El casino está en Paraguay; ingresá un monto entero en PYG.' : 'El monto en ARS admite hasta dos decimales.' })
+          const currency = monedaSegunCasino(casino) || input.currency
+          if (!PAY_CURRENCY_CODES.includes(currency)) return sendJson(response, 400, { error: 'Elegí una moneda válida.' })
+          if ((montoUsaDecimales(currency) && Math.abs(input.amount * 100 - Math.round(input.amount * 100)) >= 1e-7) || (!montoUsaDecimales(currency) && !Number.isInteger(input.amount))) return sendJson(response, 400, { error: montoUsaDecimales(currency) ? `El monto en ${currency} admite hasta dos decimales.` : `El monto en ${currency} debe ser entero.` })
           if (!fs.existsSync(payCasesFile)) fs.writeFileSync(payCasesFile, '[]')
           const cases = JSON.parse(fs.readFileSync(payCasesFile, 'utf8'))
           const agentName = String(actor.displayName || actor.name || actor.username || 'Agente').trim()

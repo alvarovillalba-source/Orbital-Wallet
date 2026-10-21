@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSharedPolling } from "./useSharedPolling";
+import { PAY_CURRENCY_CODES } from "./payCurrencies";
 
 function monedaPorCasino(casino) {
+  if (PAY_CURRENCY_CODES.includes(casino?.currency)) return casino.currency;
   const nombre = String(casino?.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (nombre.includes("paraguay")) return "PYG";
   if (nombre.includes("argentina")) return "ARS";
@@ -20,7 +22,7 @@ function fechaHoraParaguay(value) {
 
 function formatoMonto(amount, currency) {
   if (amount == null || !currency) return "—";
-  return new Intl.NumberFormat(currency === "ARS" ? "es-AR" : "es-PY", { style: "currency", currency, maximumFractionDigits: currency === "PYG" ? 0 : 2 }).format(Number(amount));
+  return new Intl.NumberFormat("es", { style: "currency", currency }).format(Number(amount));
 }
 
 export default function PayCaseRecordsPage({ content, getBrandStyles, Header, isAdmin, deletedArchive = false, currentUsername = "" }) {

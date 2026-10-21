@@ -78,5 +78,29 @@
     "deletedBy": "Alvaro Villalba",
     "deletedByUsername": "Alvaro Villalba",
     "deletionReason": "Pruebas con Pay"
+  },
+  {
+    "id": "5830975d4e04f3754c4357f333cd634e",
+    "casinoId": "1791338144807",
+    "casino": "Azar Latino Paraguay",
+    "paymentMethod": "BNF",
+    "registrationType": "Normal",
+    "manualReason": "",
+    "playerId": "5959514",
+    "transactionId": "145125325432",
+    "externalOrderId": "2846203284626",
+    "amount": 1500000,
+    "currency": "PYG",
+    "operation": "Depósito",
+    "createdAt": "2026-10-20T20:33:33.862Z",
+    "createdByUsername": "Rocio Espinola",
+    "agentName": "Rocio Espinola",
+    "author": "Rocio Espinola",
+    "modifiedAt": "2026-10-20T20:36:49.334Z",
+    "modifiedBy": "Alvaro Villalba",
+    "deletedAt": "2026-10-21T21:03:56.440Z",
+    "deletedBy": "Alvaro Villalba",
+    "deletedByUsername": "Alvaro Villalba",
+    "deletionReason": "Prueba"
   }
 ]

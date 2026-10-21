@@ -27,7 +27,10 @@ function editableHtml(source) {
     var image=event.target.closest('img');
     if(image){event.preventDefault();event.stopPropagation();activeImage=image;reportImage();return;}
     if(event.target.isContentEditable){activeImage=null;lastEditable=event.target;parent.postMessage({type:'orbital-image-selected',src:'',alt:''},'*');}
-    if(event.target.closest('a'))event.preventDefault();
+    var link=event.target.closest('a');
+    if(link&&/^#[^\s]+$/.test(link.getAttribute('href')||'')){
+      document.querySelectorAll('.sidebar nav a,aside nav a').forEach(function(item){item.classList.toggle('active',item===link);if(item===link)item.setAttribute('aria-current','location');else item.removeAttribute('aria-current');});
+    }else if(link)event.preventDefault();
   },true);
   window.addEventListener('message',function(event){
     var data=event.data||{};

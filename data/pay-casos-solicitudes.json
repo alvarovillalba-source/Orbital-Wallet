@@ -72,5 +72,60 @@
     "status": "Aprobada",
     "reviewedAt": "2026-10-15T02:07:43.031Z",
     "reviewedBy": "Alvaro Villalba"
+  },
+  {
+    "id": "b637b72b7da4b4bd45003941981db752",
+    "caseId": "5830975d4e04f3754c4357f333cd634e",
+    "requestedBy": "Rocio Espinola",
+    "requestedByUsername": "Rocio Espinola",
+    "requestedAt": "2026-10-20T20:35:02.617Z",
+    "reason": "Prueba. \nmonto original 1500000",
+    "changes": {
+      "casinoId": "1791338144807",
+      "casino": "Azar Latino Paraguay",
+      "paymentMethod": "BNF",
+      "registrationType": "Normal",
+      "manualReason": "",
+      "playerId": "5959514",
+      "transactionId": "145125325432",
+      "externalOrderId": "2846203284626",
+      "amount": 1500000,
+      "currency": "PYG",
+      "operation": "Depósito"
+    },
+    "originalRecord": {
+      "id": "5830975d4e04f3754c4357f333cd634e",
+      "casinoId": "1791338144807",
+      "casino": "Azar Latino Paraguay",
+      "paymentMethod": "BNF",
+      "registrationType": "Normal",
+      "manualReason": "",
+      "playerId": "5959514",
+      "transactionId": "145125325432",
+      "externalOrderId": "2846203284626",
+      "amount": 150000,
+      "currency": "PYG",
+      "operation": "Depósito",
+      "createdAt": "2026-10-20T20:33:33.862Z",
+      "createdByUsername": "Rocio Espinola",
+      "agentName": "Rocio Espinola",
+      "author": "Rocio Espinola"
+    },
+    "previousValues": {
+      "casinoId": "1791338144807",
+      "casino": "Azar Latino Paraguay",
+      "paymentMethod": "BNF",
+      "registrationType": "Normal",
+      "manualReason": "",
+      "playerId": "5959514",
+      "transactionId": "145125325432",
+      "externalOrderId": "2846203284626",
+      "amount": 150000,
+      "currency": "PYG",
+      "operation": "Depósito"
+    },
+    "status": "Aprobada",
+    "reviewedAt": "2026-10-20T20:36:49.335Z",
+    "reviewedBy": "Alvaro Villalba"
   }
 ]

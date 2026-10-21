@@ -47,6 +47,23 @@ function ImportedHtmlPreview({ html, title }) {
         frame.style.height = `${Math.max(document.documentElement.scrollHeight, document.body?.scrollHeight || 0, 720)}px`;
       };
       updateHeight();
+      if (frame._hashNavigation) document.removeEventListener("click", frame._hashNavigation, true);
+      frame._hashNavigation = (clickEvent) => {
+        const link = clickEvent.target.closest?.('a[href^="#"]');
+        if (!link) return;
+        const id = decodeURIComponent((link.getAttribute("href") || "").slice(1));
+        const target = id && document.getElementById(id);
+        if (!target) return;
+        clickEvent.preventDefault();
+        document.querySelectorAll(".sidebar nav a, aside nav a").forEach((item) => {
+          item.classList.toggle("active", item === link);
+          if (item === link) item.setAttribute("aria-current", "location");
+          else item.removeAttribute("aria-current");
+        });
+        const top = frame.getBoundingClientRect().top + window.scrollY + target.getBoundingClientRect().top;
+        window.scrollTo({ top, behavior: "smooth" });
+      };
+      document.addEventListener("click", frame._hashNavigation, true);
       const observer = new ResizeObserver(updateHeight);
       observer.observe(document.documentElement);
       frame._heightObserver?.disconnect();
